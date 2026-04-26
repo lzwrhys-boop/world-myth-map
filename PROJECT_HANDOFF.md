@@ -4,6 +4,16 @@
 
 ---
 
+## 近期更新记录
+
+- 已新增 `details.js`，用于独立维护故事详情内容。  
+- `data.js` 仍负责基础故事数据、坐标、分类和 `summary`。  
+- `script.js` 会根据 `story.id` 从 `window.STORY_DETAILS` 中读取 `detailZh`、`detailEn`、`meaningZh`、`meaningEn`。  
+- 没有详情的故事会自动回退到 `summary`。  
+- 后续扩写故事详情时，优先只修改 `details.js`，不要改 `data.js`。
+
+---
+
 ## 1. 项目名称与用途
 
 **项目名称：** 世界神话地图  
