@@ -236,27 +236,104 @@ function updateHeader() {
   currentRegionEl.textContent = selectedStory ? selectedStory.country : "Global";
 }
 
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function hasDisplayText(value) {
+  return value != null && String(value).trim() !== "";
+}
+
+function getConfidenceChip(value) {
+  if (!hasDisplayText(value)) return null;
+  const k = String(value).trim().toLowerCase();
+  if (k === "high") return { text: "较高可信", key: "high" };
+  if (k === "medium") return { text: "代表性地区", key: "medium" };
+  if (k === "low") return { text: "存在争议", key: "low" };
+  return { text: String(value).trim(), key: "other" };
+}
+
+function buildSelectedStoryCardHtml(s) {
+  const blocks = [];
+  if (hasDisplayText(s.cn)) {
+    blocks.push(`<h3 class="story-card__title">${escapeHtml(s.cn)}</h3>`);
+  }
+  if (hasDisplayText(s.en)) {
+    blocks.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.en)}</p>`);
+  }
+
+  const chipParts = [];
+  if (hasDisplayText(s.country)) {
+    chipParts.push(
+      `<span class="story-chip story-chip--country" title="国家">${escapeHtml(s.country)}</span>`
+    );
+  }
+  if (hasDisplayText(s.region)) {
+    chipParts.push(
+      `<span class="story-chip story-chip--region" title="地区">${escapeHtml(s.region)}</span>`
+    );
+  }
+  if (hasDisplayText(s.category)) {
+    chipParts.push(
+      `<span class="story-chip story-chip--category" title="分类">${escapeHtml(s.category)}</span>`
+    );
+  }
+  if (hasDisplayText(s.sourceType)) {
+    chipParts.push(
+      `<span class="story-chip story-chip--sourcetype" title="类型">${escapeHtml(s.sourceType)}</span>`
+    );
+  }
+  if (hasDisplayText(s.era)) {
+    chipParts.push(
+      `<span class="story-chip story-chip--era" title="时代">${escapeHtml(s.era)}</span>`
+    );
+  }
+  const confChip = getConfidenceChip(s.confidence);
+  if (confChip) {
+    chipParts.push(
+      `<span class="story-chip story-chip--confidence story-chip--conf-${confChip.key}" title="可信度">${escapeHtml(
+        confChip.text
+      )}</span>`
+    );
+  }
+  if (chipParts.length) {
+    blocks.push(`<div class="story-card__chips">${chipParts.join("")}</div>`);
+  }
+
+  const summaryText = hasDisplayText(s.summary)
+    ? s.summary
+    : s.desc && hasDisplayText(s.desc)
+      ? s.desc
+      : null;
+  if (summaryText) {
+    blocks.push(`<p class="story-card__summary">${escapeHtml(summaryText)}</p>`);
+  }
+
+  blocks.push(
+    '<p class="story-card__foot">地点以文化起源地或代表性地区标注，部分故事存在多个版本。</p>'
+  );
+  return blocks.join("");
+}
+
 function renderStoryCard() {
   if (getFilteredStories().length === 0) {
-    storyCardEl.innerHTML = '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
+    storyCardEl.innerHTML =
+      '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
     return;
   }
 
   if (!selectedStory) {
-    storyCardEl.innerHTML = '<p class="placeholder">点击地球上的点位，查看神话详情。</p>';
+    storyCardEl.innerHTML =
+      '<p class="placeholder">点击地球上的发光点位，打开一段来自世界文明的古老故事。</p>';
     return;
   }
 
-  storyCardEl.innerHTML = `
-    <h3>${selectedStory.cn}</h3>
-    <p class="en">${selectedStory.en}</p>
-    <p class="meta">
-      国家：${selectedStory.country}<br/>
-      分类：${selectedStory.category}<br/>
-      坐标：${selectedStory.lat.toFixed(1)}, ${selectedStory.lng.toFixed(1)}
-    </p>
-    <p class="desc">${selectedStory.summary || selectedStory.desc || ""}</p>
-  `;
+  storyCardEl.innerHTML = buildSelectedStoryCardHtml(selectedStory);
 
   if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
     const anchor = storyCardSectionEl || storyCardEl.closest(".card-block") || storyCardEl;

@@ -350,7 +350,7 @@ h1 {
 .side-panel {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
   width: 340px;
   max-width: 340px;
   min-width: 340px;
@@ -364,51 +364,178 @@ h1 {
 }
 
 .card-block {
-  flex: 0 0 220px;
+  flex: 0 1 58%;
+  min-height: 0;
+  max-height: 58%;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.card-block h2 {
+  flex-shrink: 0;
+  margin: 0 0 10px;
 }
 
 .rank-block {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
 h2 {
-  margin: 0 0 10px;
   color: #dce8ff;
   font-size: 17px;
+}
+
+.card-block > h2,
+.rank-block > h2 {
+  margin: 0 0 10px;
 }
 
 .story-card {
   border: 1px solid rgba(138, 161, 218, 0.25);
   border-radius: 12px;
-  padding: 12px;
-  min-height: 190px;
+  padding: 14px 14px 16px;
+  box-sizing: border-box;
+  min-height: 300px;
+  flex: 0 0 auto;
+  width: 100%;
+  overflow: visible;
   background: rgba(7, 14, 27, 0.72);
 }
 
-.story-card h3 {
+.story-card h3,
+.story-card__title {
   margin: 0 0 6px;
   font-size: 20px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #eef3ff;
 }
 
-.story-card .en {
-  margin: 0;
+.story-card .en,
+.story-card__en,
+.story-card__subtitle {
+  margin: 0 0 10px;
   color: #9ab7e8;
-}
-
-.story-card .meta {
-  margin: 10px 0 0;
   font-size: 14px;
-  color: #b9c7eb;
-  line-height: 1.6;
+  line-height: 1.5;
+  font-weight: 400;
 }
 
-.story-card .desc {
-  margin: 8px 0 0;
-  color: #d9e2ff;
+.story-card__subtitle {
+  display: block;
+  opacity: 0.95;
+}
+
+.story-card__row {
+  margin: 0 0 6px;
+  font-size: 14px;
+  color: #c4d0ef;
   line-height: 1.55;
+}
+
+.story-card__label {
+  display: inline-block;
+  min-width: 2.5em;
+  margin-right: 6px;
+  color: #7f93bd;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.story-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+  margin: 4px 0 0;
+}
+
+.story-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.45;
+  border: 1px solid rgba(148, 175, 230, 0.28);
+  background: rgba(12, 24, 46, 0.65);
+  color: #c8d8f5;
+  white-space: normal;
+  max-width: 100%;
+  word-break: break-word;
+}
+
+.story-chip--country {
+  border-color: rgba(150, 210, 255, 0.35);
+  color: #d6ecff;
+  background: rgba(10, 32, 52, 0.55);
+}
+
+.story-chip--region {
+  border-color: rgba(180, 200, 255, 0.28);
+  color: #cfd9f5;
+  background: rgba(14, 24, 44, 0.55);
+}
+
+.story-chip--category {
+  border-color: rgba(112, 209, 255, 0.32);
+  color: #bfe8ff;
+}
+
+.story-chip--era {
+  border-color: rgba(184, 146, 255, 0.3);
+  color: #d9ccff;
+}
+
+.story-chip--sourcetype {
+  border-color: rgba(160, 190, 240, 0.28);
+  color: #d2dff8;
+}
+
+.story-chip--confidence {
+  font-weight: 500;
+}
+
+.story-chip--conf-high {
+  border-color: rgba(92, 214, 168, 0.45);
+  color: #b8f0dc;
+  background: rgba(10, 40, 32, 0.55);
+}
+
+.story-chip--conf-medium {
+  border-color: rgba(112, 181, 255, 0.4);
+  color: #b8d6ff;
+}
+
+.story-chip--conf-low {
+  border-color: rgba(255, 180, 120, 0.45);
+  color: #ffd4b0;
+  background: rgba(48, 28, 12, 0.45);
+}
+
+.story-chip--conf-other {
+  border-color: rgba(160, 180, 220, 0.35);
+}
+
+.story-card__summary {
+  margin: 14px 0 0;
+  color: #d9e2ff;
+  line-height: 1.7;
+  font-size: 14px;
+}
+
+.story-card__foot {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid rgba(120, 150, 210, 0.18);
+  font-size: 11px;
+  line-height: 1.55;
+  color: #7a8fbb;
 }
 
 .placeholder {
@@ -503,6 +630,22 @@ h2 {
     height: auto;
     min-height: 0;
     max-height: none;
+    gap: 16px;
+  }
+
+  .card-block {
+    flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
+  }
+
+  .story-card {
+    min-height: 280px;
+  }
+
+  .rank-block {
+    flex: 1 1 auto;
+    min-height: 160px;
   }
 }
 
@@ -623,20 +766,25 @@ h2 {
     height: auto;
     min-height: 0;
     max-height: none;
-    gap: 10px;
+    gap: 16px;
   }
 
   .card-block {
     flex: 0 0 auto;
+    max-height: none;
+    overflow: visible;
   }
 
   .story-card {
-    min-height: 0;
+    min-height: 260px;
+    max-height: none;
+    overflow: visible;
   }
 
   .rank-block {
-    min-height: 180px;
-    max-height: 40vh;
+    flex: 1 1 auto;
+    min-height: 140px;
+    max-height: min(40vh, 320px);
   }
 
   #countryRanking {
