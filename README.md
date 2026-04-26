@@ -15,7 +15,10 @@
 - `style.css`：页面视觉样式与布局
 - `script.js`：交互逻辑（地球、点位、筛选、搜索、排行榜联动）
 - `data.js`：故事数据库（`window.STORIES`）
+- `assets/social-preview.svg`：Open Graph / Twitter 分享封面（1200×630）
 - `README.md`：项目说明文档（本文件）
+
+**社交分享图说明：** 当前 `og:image` / `twitter:image` 指向仓库内 `assets/social-preview.svg`。部分平台对 **SVG 作为分享图** 的支持不一；若发现预览失败或效果异常，可导出 **1200×630 的 PNG** 为 `assets/social-preview.png`，并在 `index.html` 中将对应 meta 的 URL 改为该 PNG 的绝对地址。
 
 ---
 
