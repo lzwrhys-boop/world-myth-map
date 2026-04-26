@@ -80,6 +80,34 @@ h1 {
   color: var(--accent);
 }
 
+.search-row {
+  border: 1px solid var(--line);
+  background: rgba(10, 20, 38, 0.58);
+  border-radius: 14px;
+  padding: 8px 10px;
+}
+
+#searchInput {
+  width: 100%;
+  height: 42px;
+  border: 1px solid rgba(146, 176, 235, 0.28);
+  border-radius: 999px;
+  background: rgba(7, 15, 30, 0.76);
+  color: #deebff;
+  padding: 0 16px;
+  outline: none;
+  font-size: 14px;
+}
+
+#searchInput::placeholder {
+  color: #9eb2dd;
+}
+
+#searchInput:focus {
+  border-color: rgba(115, 212, 255, 0.8);
+  box-shadow: 0 0 0 3px rgba(102, 187, 255, 0.15);
+}
+
 .main-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;

@@ -2,6 +2,7 @@ const stories = Array.isArray(window.STORIES) ? window.STORIES : [];
 
 const categories = ["All", "Sun", "Flood", "Fire", "Dragon", "Love", "Moon", "Princess"];
 let currentFilter = "All";
+let searchTerm = "";
 let selectedStory = null;
 let globe;
 let tooltipEl = null;
@@ -11,10 +12,221 @@ const currentRegionEl = document.getElementById("currentRegion");
 const storyCardEl = document.getElementById("storyCard");
 const countryRankingEl = document.getElementById("countryRanking");
 const filterBarEl = document.getElementById("filterBar");
+const searchInputEl =
+  document.getElementById("searchInput") ||
+  document.querySelector('input[type="search"]') ||
+  document.querySelector('input[placeholder*="搜索"]');
+
+const countryAliasMap = {
+  中国: "China",
+  大陆: "China",
+  日本: "Japan",
+  韩国: "Korea",
+  朝鲜: "Korea",
+  蒙古: "Mongolia",
+  台湾: "Taiwan",
+  印度: "India",
+  尼泊尔: "Nepal",
+  斯里兰卡: "Sri Lanka",
+  孟加拉: "Bangladesh",
+  泰国: "Thailand",
+  越南: "Vietnam",
+  柬埔寨: "Cambodia",
+  老挝: "Laos",
+  缅甸: "Myanmar",
+  马来西亚: "Malaysia",
+  印尼: "Indonesia",
+  印度尼西亚: "Indonesia",
+  菲律宾: "Philippines",
+  新加坡: "Singapore",
+  澳大利亚: "Australia",
+  澳洲: "Australia",
+  新西兰: "New Zealand",
+  希腊: "Greece",
+  罗马: "Italy",
+  意大利: "Italy",
+  法国: "France",
+  德国: "Germany",
+  英国: ["United Kingdom", "England", "Scotland", "Wales"],
+  英格兰: ["United Kingdom", "England"],
+  苏格兰: ["United Kingdom", "Scotland"],
+  威尔士: ["United Kingdom", "Wales"],
+  爱尔兰: "Ireland",
+  挪威: "Norway",
+  瑞典: "Sweden",
+  芬兰: "Finland",
+  冰岛: "Iceland",
+  丹麦: "Denmark",
+  俄罗斯: "Russia",
+  乌克兰: "Ukraine",
+  波兰: "Poland",
+  捷克: "Czech Republic",
+  匈牙利: "Hungary",
+  西班牙: "Spain",
+  葡萄牙: "Portugal",
+  荷兰: "Netherlands",
+  埃及: "Egypt",
+  尼日利亚: "Nigeria",
+  加纳: "Ghana",
+  肯尼亚: "Kenya",
+  埃塞俄比亚: "Ethiopia",
+  南非: "South Africa",
+  摩洛哥: "Morocco",
+  苏丹: "Sudan",
+  刚果: "Congo",
+  马里: "Mali",
+  美国: "United States",
+  美洲原住民: ["United States", "Canada"],
+  加拿大: "Canada",
+  墨西哥: "Mexico",
+  秘鲁: "Peru",
+  巴西: "Brazil",
+  智利: "Chile",
+  阿根廷: "Argentina",
+  玻利维亚: "Bolivia",
+  危地马拉: "Guatemala",
+  伊朗: "Iran",
+  波斯: "Iran",
+  伊拉克: "Iraq",
+  巴比伦: "Iraq",
+  苏美尔: "Iraq",
+  以色列: "Israel",
+  土耳其: "Turkey",
+  沙特: "Saudi Arabia",
+  阿拉伯: "Saudi Arabia",
+  叙利亚: "Syria",
+  黎巴嫩: "Lebanon",
+  阿尔及利亚: "Algeria",
+  亚美尼亚: "Armenia",
+  格鲁吉亚: "Georgia",
+  约旦: "Jordan",
+  塞尔维亚: "Serbia",
+  斯洛伐克: "Slovakia",
+  罗马尼亚: "Romania",
+  保加利亚: "Bulgaria",
+  克罗地亚: "Croatia",
+  突尼斯: "Tunisia",
+  坦桑尼亚: "Tanzania",
+  巴基斯坦: "Pakistan",
+  萨摩亚: "Samoa",
+  斐济: "Fiji",
+  巴布亚新几内亚: "Papua New Guinea",
+  法罗群岛: "Faroe Islands"
+};
+
+const countryDisplayAliasMap = {
+  China: ["中国", "大陆"],
+  Japan: ["日本"],
+  Korea: ["韩国", "朝鲜"],
+  Mongolia: ["蒙古"],
+  Taiwan: ["台湾"],
+  India: ["印度"],
+  Nepal: ["尼泊尔"],
+  "Sri Lanka": ["斯里兰卡"],
+  Bangladesh: ["孟加拉"],
+  Thailand: ["泰国"],
+  Cambodia: ["柬埔寨"],
+  Malaysia: ["马来西亚"],
+  Indonesia: ["印尼", "印度尼西亚"],
+  Philippines: ["菲律宾"],
+  Australia: ["澳大利亚", "澳洲"],
+  "New Zealand": ["新西兰"],
+  Greece: ["希腊"],
+  Italy: ["意大利", "罗马"],
+  Ireland: ["爱尔兰"],
+  Norway: ["挪威"],
+  Sweden: ["瑞典"],
+  Finland: ["芬兰"],
+  Iceland: ["冰岛"],
+  Denmark: ["丹麦"],
+  Russia: ["俄罗斯"],
+  Ukraine: ["乌克兰"],
+  Poland: ["波兰"],
+  "Czech Republic": ["捷克"],
+  Hungary: ["匈牙利"],
+  Spain: ["西班牙"],
+  Portugal: ["葡萄牙"],
+  Egypt: ["埃及"],
+  Nigeria: ["尼日利亚"],
+  Ghana: ["加纳"],
+  Kenya: ["肯尼亚"],
+  Ethiopia: ["埃塞俄比亚"],
+  "South Africa": ["南非"],
+  Morocco: ["摩洛哥"],
+  Congo: ["刚果"],
+  "United States": ["美国", "美洲原住民"],
+  Canada: ["加拿大"],
+  Mexico: ["墨西哥"],
+  Peru: ["秘鲁"],
+  Brazil: ["巴西"],
+  Chile: ["智利"],
+  Argentina: ["阿根廷"],
+  Bolivia: ["玻利维亚"],
+  Guatemala: ["危地马拉"],
+  Iran: ["伊朗", "波斯"],
+  Iraq: ["伊拉克", "巴比伦", "苏美尔"],
+  Israel: ["以色列"],
+  Turkey: ["土耳其"],
+  "Saudi Arabia": ["沙特", "阿拉伯"],
+  Syria: ["叙利亚"],
+  Lebanon: ["黎巴嫩"],
+  England: ["英格兰", "英国"],
+  Scotland: ["苏格兰", "英国"],
+  Wales: ["威尔士", "英国"],
+  "Faroe Islands": ["法罗群岛"]
+};
+
+function normalizeText(value) {
+  return String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function buildSearchKeywords(rawTerm) {
+  const normalized = normalizeText(rawTerm);
+  if (!normalized) return [];
+  const compact = normalized.replace(/\s+/g, "");
+  const terms = new Set([normalized, compact]);
+  Object.entries(countryAliasMap).forEach(([zhAlias, mapped]) => {
+    const alias = normalizeText(zhAlias);
+    if (!alias || !compact.includes(alias.replace(/\s+/g, ""))) return;
+    const targets = Array.isArray(mapped) ? mapped : [mapped];
+    targets.forEach((target) => {
+      const t = normalizeText(target);
+      terms.add(t);
+      terms.add(t.replace(/\s+/g, ""));
+    });
+  });
+  return [...terms];
+}
 
 function getFilteredStories() {
-  if (currentFilter === "All") return stories;
-  return stories.filter((item) => item.category === currentFilter);
+  const terms = buildSearchKeywords(searchTerm);
+  return stories.filter((item) => {
+    const passCategory = currentFilter === "All" || item.category === currentFilter;
+    if (!passCategory) return false;
+    if (!terms.length) return true;
+
+    const aliases = countryDisplayAliasMap[item.country] || [];
+    const haystack = [
+      item.cn,
+      item.en,
+      item.country,
+      ...aliases,
+      item.region,
+      item.category,
+      item.era,
+      item.sourceType,
+      item.summary
+    ]
+      .filter(Boolean)
+      .map((v) => normalizeText(v))
+      .join(" ");
+    const haystackCompact = haystack.replace(/\s+/g, "");
+
+    return terms.some((term) => haystack.includes(term) || haystackCompact.includes(term));
+  });
 }
 
 function updateHeader() {
@@ -24,6 +236,11 @@ function updateHeader() {
 }
 
 function renderStoryCard() {
+  if (getFilteredStories().length === 0) {
+    storyCardEl.innerHTML = '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
+    return;
+  }
+
   if (!selectedStory) {
     storyCardEl.innerHTML = '<p class="placeholder">点击地球上的点位，查看神话详情。</p>';
     return;
@@ -156,6 +373,21 @@ function initFilters() {
   });
 }
 
+function initSearch() {
+  if (!searchInputEl) return;
+  searchInputEl.addEventListener("input", (event) => {
+    searchTerm = event.target.value || "";
+    const filtered = getFilteredStories();
+    if (selectedStory && !filtered.includes(selectedStory)) {
+      selectedStory = null;
+    }
+    refreshGlobePoints();
+    renderStoryCard();
+    renderCountryRanking();
+    updateHeader();
+  });
+}
+
 function initGlobe() {
   const globeContainer = document.getElementById("globeViz");
   const interactionContainer = document.querySelector(".globe-panel") || globeContainer;
@@ -210,6 +442,7 @@ function initGlobe() {
 function init() {
   initGlobe();
   initFilters();
+  initSearch();
   refreshGlobePoints();
   renderStoryCard();
   renderCountryRanking();
