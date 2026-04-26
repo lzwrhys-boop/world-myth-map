@@ -1,5 +1,35 @@
 const stories = Array.isArray(window.STORIES) ? window.STORIES : [];
 
+/** 由 en（或 cn）生成的稳定 id，供 details.js 等扩展匹配；不覆盖 data 中已有 id */
+function stableIdFromEn(en) {
+  return String(en || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "story";
+}
+
+function ensureStoryIds() {
+  const used = new Set();
+  stories.forEach((st, idx) => {
+    if (st.id != null && String(st.id).trim() !== "") {
+      used.add(String(st.id).trim());
+      return;
+    }
+    const base = stableIdFromEn(st.en) || stableIdFromEn(st.cn) || `story-${idx}`;
+    let id = base;
+    let n = 2;
+    while (used.has(id)) {
+      id = `${base}-${n}`;
+      n += 1;
+    }
+    st.id = id;
+    used.add(id);
+  });
+}
+
 /** 含 "All" + 数据中实际出现的分类（canonical），由 refreshCategoryLists 填充 */
 let categories = ["All"];
 /** 不含 All 的 canonical 分类列表，与图例、底栏按钮一一对应 */
@@ -82,7 +112,11 @@ const I18N = {
     clearFilters: "清空筛选",
     searchResultsAria: "搜索结果",
     searchResultsEmpty: "没有找到相关故事，试试国家、分类或英文关键词。",
-    searchResultsMoreTpl: "还有 {x} 个结果，请继续缩小搜索范围"
+    searchResultsMoreTpl: "还有 {x} 个结果，请继续缩小搜索范围",
+    storyExpandMore: "展开故事",
+    storyShowLess: "收起故事",
+    storyDetailTitle: "故事详情",
+    storyMeaningTitle: "文化含义"
   },
   en: {
     langToggleLabel: "CN / English",
@@ -141,7 +175,11 @@ const I18N = {
     clearFilters: "Clear filters",
     searchResultsAria: "Search results",
     searchResultsEmpty: "No stories found. Try a country, category, or English keyword.",
-    searchResultsMoreTpl: "{x} more results. Refine your search."
+    searchResultsMoreTpl: "{x} more results. Refine your search.",
+    storyExpandMore: "Read more",
+    storyShowLess: "Show less",
+    storyDetailTitle: "Story detail",
+    storyMeaningTitle: "Cultural meaning"
   }
 };
 
@@ -923,6 +961,50 @@ function initSearchResultsNav() {
   });
 }
 
+function getStoryDetailRecord(story) {
+  const pool = typeof window !== "undefined" && window.STORY_DETAILS ? window.STORY_DETAILS : null;
+  if (!pool || !story || !story.id) return null;
+  const rec = pool[story.id];
+  return rec && typeof rec === "object" ? rec : null;
+}
+
+function buildStoryCardDetailsBlock(s) {
+  const d = getStoryDetailRecord(s);
+  if (!d) return "";
+  const pickZhFirst = (zhKey, enKey) => {
+    if (currentLang === "zh") {
+      if (hasDisplayText(d[zhKey])) return d[zhKey];
+      if (hasDisplayText(d[enKey])) return d[enKey];
+      return "";
+    }
+    if (hasDisplayText(d[enKey])) return d[enKey];
+    if (hasDisplayText(d[zhKey])) return d[zhKey];
+    return "";
+  };
+  const detailBody = pickZhFirst("detailZh", "detailEn");
+  const meaningBody = pickZhFirst("meaningZh", "meaningEn");
+  if (!detailBody && !meaningBody) return "";
+
+  const sid = escapeHtml(String(s.id));
+  let html = `<div class="story-card__details-wrap" data-story-id="${sid}">`;
+  html += `<button type="button" class="story-card__details-toggle" aria-expanded="false">${escapeHtml(
+    t("storyExpandMore")
+  )}</button>`;
+  html += `<div class="story-card__details-panel" hidden>`;
+  if (detailBody) {
+    html += `<h4 class="story-card__details-h">${escapeHtml(t("storyDetailTitle"))}</h4><p class="story-card__details-p">${escapeHtml(
+      detailBody
+    )}</p>`;
+  }
+  if (meaningBody) {
+    html += `<h4 class="story-card__details-h">${escapeHtml(t("storyMeaningTitle"))}</h4><p class="story-card__details-p">${escapeHtml(
+      meaningBody
+    )}</p>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
 function buildSelectedStoryCardHtml(s) {
   const blocks = [];
   if (currentLang === "zh") {
@@ -995,6 +1077,9 @@ function buildSelectedStoryCardHtml(s) {
   if (summaryText) {
     blocks.push(`<p class="story-card__summary">${escapeHtml(summaryText)}</p>`);
   }
+
+  const detailsHtml = buildStoryCardDetailsBlock(s);
+  if (detailsHtml) blocks.push(detailsHtml);
 
   blocks.push(`<p class="story-card__foot">${escapeHtml(t("storyCardFoot"))}</p>`);
   const exploreHtml = buildExploreRecommendationsHtml(s);
@@ -1075,6 +1160,24 @@ function applyRankingCountryToggle(country) {
   updateHeader();
   updateFilterStatusBar();
   renderSearchResults();
+}
+
+function initStoryCardDetailsToggle() {
+  if (!storyCardEl || storyCardEl.dataset.detailsToggleBound === "1") return;
+  storyCardEl.dataset.detailsToggleBound = "1";
+  storyCardEl.addEventListener("click", (event) => {
+    const btn = event.target.closest(".story-card__details-toggle");
+    if (!btn) return;
+    const wrap = btn.closest(".story-card__details-wrap");
+    const panel = wrap?.querySelector(".story-card__details-panel");
+    if (!panel) return;
+    event.preventDefault();
+    const expanded = btn.getAttribute("aria-expanded") === "true";
+    const next = !expanded;
+    btn.setAttribute("aria-expanded", next ? "true" : "false");
+    panel.hidden = !next;
+    btn.textContent = t(next ? "storyShowLess" : "storyExpandMore");
+  });
 }
 
 function initStoryExploreNav() {
@@ -1595,12 +1698,14 @@ function initAboutModal() {
 }
 
 function init() {
+  ensureStoryIds();
   initGlobe();
   refreshCategoryLists();
   initLegendNav();
   initFilters();
   initCountryRankingNav();
   initStoryExploreNav();
+  initStoryCardDetailsToggle();
   initLangToggle();
   initSearchResultsNav();
   initSearch();

@@ -546,6 +546,19 @@ window.STORIES = [
     "confidence": "High"
   },
   {
+    "cn": "Japan·伊邪那岐与伊邪那美",
+    "en": "Izanagi and Izanami (Japan)",
+    "country": "Japan",
+    "region": "EastAsia",
+    "lat": 35.21,
+    "lng": 139.1,
+    "category": "Creation",
+    "era": "Ancient",
+    "summary": "二神搅动大海滴成岛，结合诞下日本神族，死产与黄泉追寻构成神世系主干。",
+    "sourceType": "Myth",
+    "confidence": "High"
+  },
+  {
     "cn": "Japan·须佐之男命斩八岐",
     "en": "Susanoo and Yamata-no-Orochi (Japan)",
     "country": "Japan",
@@ -1075,6 +1088,19 @@ window.STORIES = [
     "category": "Dragon",
     "era": "Ancient",
     "summary": "侏儒锻造与巨人试炼，雷电与保护。",
+    "sourceType": "Myth",
+    "confidence": "High"
+  },
+  {
+    "cn": "Norway·奥丁与世界树",
+    "en": "Odin and Yggdrasil (Norway)",
+    "country": "Norway",
+    "region": "NordicCeltic",
+    "lat": 59.45,
+    "lng": 10.12,
+    "category": "Moon",
+    "era": "Ancient",
+    "summary": "独眼神以智慧为代价，九界巨木贯通天地与冥府，维系北欧宇宙秩序。",
     "sourceType": "Myth",
     "confidence": "High"
   },
