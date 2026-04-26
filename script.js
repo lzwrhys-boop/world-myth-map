@@ -48,7 +48,6 @@ const SEARCH_INPUT_DEBOUNCE_MS = 160;
 let globe;
 let tooltipEl = null;
 
-const storyMetaEl = document.getElementById("storyMeta");
 const currentRegionEl = document.getElementById("currentRegion");
 const storyCardEl = document.getElementById("storyCard");
 const storyCardSectionEl = document.getElementById("storyCardSection");
@@ -135,7 +134,28 @@ const I18N = {
     onboardRandomDisabledTitle: "当前筛选条件下暂无可用故事",
     storyNotFoundAll: "未找到该故事，已返回全部故事。",
     copyLink: "复制链接",
-    linkCopied: "已复制"
+    linkCopied: "已复制",
+    heroSubtitle: "在一颗旋转的星球上，探索来自世界文明的古老故事。",
+    heroPitch: "一个将神话、童话、民间传说与史诗故事映射到地球坐标上的互动知识地图。",
+    heroStatStoriesSuffix: "个故事",
+    heroStatCountriesSuffix: "个国家地区",
+    heroStatCoverageLbl: "故事详情",
+    heroStatsAria: "收录规模与详情覆盖率",
+    heroTag1: "3D 地球探索",
+    heroTag2: "中英文故事档案",
+    heroTag3: "可分享故事链接",
+    heroTagsAria: "作品特性",
+    dataNotesOpenBtn: "数据说明",
+    dataNotesModalTitle: "数据说明",
+    dataNotesBody:
+      "本项目将世界各地的神话、童话、民间传说与史诗故事映射到 3D 地球上。由于许多故事来自口述传统、文学改写或跨文化传播，地图点位并不一定代表“真实发生地”，而是根据文化起源地、代表性地区或最常见版本进行标注。",
+    dataNotesConfHeading: "可信度说明",
+    dataNotesConfLineHigh: "High：故事来源或文化归属较明确。",
+    dataNotesConfLineMedium: "Medium：地点为代表性地区，故事可能存在多个版本。",
+    dataNotesConfLineLow: "Low：地点存在争议，或仅能按文化圈进行近似标注。",
+    dataNotesAddHeading: "补充说明",
+    dataNotesAddBody:
+      "部分故事存在跨国传播、民间变体或后世文学改写。本站内容用于知识可视化、文化探索与学习参考，不作为严格学术考证结论。"
   },
   en: {
     langToggleLabel: "CN / English",
@@ -212,7 +232,30 @@ const I18N = {
     onboardRandomDisabledTitle: "No stories match the current filters",
     storyNotFoundAll: "Story not found. Showing all stories.",
     copyLink: "Copy Link",
-    linkCopied: "Copied"
+    linkCopied: "Copied",
+    heroSubtitle: "Explore ancient stories from world civilizations on a rotating globe.",
+    heroPitch:
+      "An interactive knowledge map that places myths, fairy tales, folk tales, and epics onto a global 3D atlas.",
+    heroStatStoriesSuffix: "Stories",
+    heroStatCountriesSuffix: "Countries & Regions",
+    heroStatCoverageLbl: "Detailed archives",
+    heroStatsAria: "Collection scale and detail coverage",
+    heroTag1: "3D Globe Exploration",
+    heroTag2: "Bilingual Story Archives",
+    heroTag3: "Shareable Story Links",
+    heroTagsAria: "Highlights",
+    dataNotesOpenBtn: "Data Notes",
+    dataNotesModalTitle: "Data Notes",
+    dataNotesBody:
+      "This project maps myths, fairy tales, folk tales, and epic stories onto a 3D globe. Because many stories come from oral traditions, literary adaptations, or cross-cultural transmission, the mapped location does not always represent a literal place of occurrence. Points are generally based on cultural origin, representative region, or the most widely known version.",
+    dataNotesConfHeading: "Confidence Notes",
+    dataNotesConfLineHigh: "High: The story’s cultural origin or geographic association is relatively clear.",
+    dataNotesConfLineMedium:
+      "Medium: The point represents a common or representative region, and multiple versions may exist.",
+    dataNotesConfLineLow: "Low: The location is disputed or only approximate at the cultural-region level.",
+    dataNotesAddHeading: "Additional Note",
+    dataNotesAddBody:
+      "Some stories have cross-border variants, folk adaptations, or later literary versions. This site is intended for knowledge visualization, cultural exploration, and learning, not as a strict academic reference."
   }
 };
 
@@ -1004,10 +1047,7 @@ function initUrlStorySync() {
 }
 
 function updateHeader() {
-  const countries = new Set(stories.map((item) => item.country));
-  const n = stories.length;
-  const c = countries.size;
-  storyMetaEl.textContent = formatTpl(t("storyMetaTpl"), { n, c });
+  if (!currentRegionEl) return;
   if (selectedStory) {
     currentRegionEl.textContent = selectedStory.country;
   } else if (rankingCountryFilter) {
@@ -1017,22 +1057,120 @@ function updateHeader() {
   }
 }
 
+function computeDetailCoveragePct() {
+  const pool = typeof window !== "undefined" && window.STORY_DETAILS ? window.STORY_DETAILS : null;
+  const total = stories.length;
+  if (!total) return 0;
+  if (!pool || typeof pool !== "object") return 0;
+  let n = 0;
+  for (let i = 0; i < stories.length; i++) {
+    const st = stories[i];
+    if (!st || st.id == null) continue;
+    const rec = pool[st.id];
+    if (rec && typeof rec === "object") n += 1;
+  }
+  return Math.min(100, Math.round((n / total) * 100));
+}
+
+function scrollToGlobePanel() {
+  const target = document.querySelector(".globe-panel");
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+}
+
+function triggerRandomStoryFromPool() {
+  const list = getFilteredStories();
+  if (!list.length) return;
+  const story = list[Math.floor(Math.random() * list.length)];
+  selectStoryAndRefresh(story);
+}
+
+function updateExploreRandomButtonsState() {
+  const empty = getFilteredStories().length === 0;
+  const btn = document.getElementById("heroRandomBtn");
+  if (!btn) return;
+  btn.disabled = empty;
+  btn.title = empty ? t("onboardRandomDisabledTitle") : "";
+}
+
+function updateHeroBlock() {
+  const sub = document.getElementById("heroSubtitle");
+  const pitch = document.getElementById("heroPitch");
+  const statsWrap = document.getElementById("heroStats");
+  const explore = document.getElementById("heroExploreBtn");
+  const random = document.getElementById("heroRandomBtn");
+  const tags = document.getElementById("heroTags");
+  if (sub) sub.textContent = t("heroSubtitle");
+  if (pitch) pitch.textContent = t("heroPitch");
+
+  const n = stories.length;
+  const c = new Set(stories.map((s) => s.country).filter(Boolean)).size;
+  const pct = computeDetailCoveragePct();
+
+  const sn = document.getElementById("heroStatStoriesN");
+  const sl = document.getElementById("heroStatStoriesL");
+  const cn = document.getElementById("heroStatCountriesN");
+  const cl = document.getElementById("heroStatCountriesL");
+  const pn = document.getElementById("heroStatCoverageN");
+  const pl = document.getElementById("heroStatCoverageL");
+  if (sn) sn.textContent = String(n);
+  if (sl) sl.textContent = t("heroStatStoriesSuffix");
+  if (cn) cn.textContent = String(c);
+  if (cl) cl.textContent = t("heroStatCountriesSuffix");
+  if (pn) pn.textContent = `${pct}%`;
+  if (pl) pl.textContent = t("heroStatCoverageLbl");
+
+  if (statsWrap) statsWrap.setAttribute("aria-label", t("heroStatsAria"));
+
+  if (explore) {
+    explore.textContent = t("onboardExploreBtn");
+    explore.setAttribute("aria-label", t("onboardExploreBtn"));
+  }
+  if (random) {
+    random.textContent = t("onboardRandomBtn");
+    random.setAttribute("aria-label", t("onboardRandomBtn"));
+  }
+
+  if (tags) {
+    tags.setAttribute("aria-label", t("heroTagsAria"));
+    tags.innerHTML = "";
+    ["heroTag1", "heroTag2", "heroTag3"].forEach((key) => {
+      const li = document.createElement("li");
+      li.textContent = t(key);
+      tags.appendChild(li);
+    });
+  }
+
+  updateExploreRandomButtonsState();
+}
+
+function initHeroActions() {
+  const explore = document.getElementById("heroExploreBtn");
+  const random = document.getElementById("heroRandomBtn");
+  if (explore && !explore.dataset.heroBound) {
+    explore.dataset.heroBound = "1";
+    explore.addEventListener("click", scrollToGlobePanel);
+  }
+  if (random && !random.dataset.heroBound) {
+    random.dataset.heroBound = "1";
+    random.addEventListener("click", () => {
+      if (random.disabled) return;
+      triggerRandomStoryFromPool();
+    });
+  }
+}
+
 function updateOnboardingHud() {
   const hud = document.getElementById("onboardingHud");
   const kicker = document.getElementById("onboardingKicker");
   const title = document.getElementById("onboardingTitle");
   const subtitle = document.getElementById("onboardingSubtitle");
   const tipsEl = document.getElementById("onboardingTips");
-  const exploreBtn = document.getElementById("onboardingExploreBtn");
-  const randomBtn = document.getElementById("onboardingRandomBtn");
-  if (!hud || !kicker || !title || !subtitle || !tipsEl || !exploreBtn || !randomBtn) return;
+  if (!hud || !kicker || !title || !subtitle || !tipsEl) return;
 
   hud.setAttribute("aria-label", t("onboardHudAria"));
   kicker.textContent = t("onboardKicker");
   title.textContent = t("onboardTitle");
   subtitle.textContent = t("onboardSubtitle");
-  exploreBtn.textContent = t("onboardExploreBtn");
-  randomBtn.textContent = t("onboardRandomBtn");
 
   tipsEl.innerHTML = "";
   ["onboardTip1", "onboardTip2", "onboardTip3"].forEach((key) => {
@@ -1041,28 +1179,11 @@ function updateOnboardingHud() {
     tipsEl.appendChild(li);
   });
 
-  const empty = getFilteredStories().length === 0;
-  randomBtn.disabled = empty;
-  randomBtn.title = empty ? t("onboardRandomDisabledTitle") : "";
+  updateExploreRandomButtonsState();
 }
 
 function initOnboarding() {
-  const exploreBtn = document.getElementById("onboardingExploreBtn");
-  const randomBtn = document.getElementById("onboardingRandomBtn");
-  if (!exploreBtn || !randomBtn || exploreBtn.dataset.onboardingBound === "1") return;
-  exploreBtn.dataset.onboardingBound = "1";
-  randomBtn.dataset.onboardingBound = "1";
-  exploreBtn.addEventListener("click", () => {
-    const target = document.querySelector(".globe-panel");
-    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
-  });
-  randomBtn.addEventListener("click", () => {
-    if (randomBtn.disabled) return;
-    const list = getFilteredStories();
-    if (!list.length) return;
-    const story = list[Math.floor(Math.random() * list.length)];
-    selectStoryAndRefresh(story);
-  });
+  initHeroActions();
 }
 
 function escapeHtml(value) {
@@ -1950,6 +2071,25 @@ function updateAboutModalI18n() {
   }
 }
 
+function updateDataNotesModalI18n() {
+  const titleEl = document.getElementById("dataNotesModalTitle");
+  const bodyEl = document.getElementById("dataNotesBody");
+  const confH = document.getElementById("dataNotesConfHeading");
+  const listEl = document.getElementById("dataNotesConfList");
+  const addH = document.getElementById("dataNotesAddHeading");
+  const addB = document.getElementById("dataNotesAddBody");
+  if (titleEl) titleEl.textContent = t("dataNotesModalTitle");
+  if (bodyEl) bodyEl.textContent = t("dataNotesBody");
+  if (confH) confH.textContent = t("dataNotesConfHeading");
+  if (listEl) {
+    listEl.innerHTML = ["dataNotesConfLineHigh", "dataNotesConfLineMedium", "dataNotesConfLineLow"]
+      .map((k) => `<li>${escapeHtml(t(k))}</li>`)
+      .join("");
+  }
+  if (addH) addH.textContent = t("dataNotesAddHeading");
+  if (addB) addB.textContent = t("dataNotesAddBody");
+}
+
 function updateLanguageUI() {
   clearPendingSearchDrivenRefresh();
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
@@ -1978,6 +2118,9 @@ function updateLanguageUI() {
   const ab = document.getElementById("aboutBtn");
   if (ab) ab.textContent = t("aboutButton");
 
+  const dnb = document.getElementById("dataNotesBtn");
+  if (dnb) dnb.textContent = t("dataNotesOpenBtn");
+
   const regionLab = document.getElementById("regionChipLabel");
   if (regionLab) regionLab.textContent = t("regionChipPrefix");
 
@@ -1985,9 +2128,13 @@ function updateLanguageUI() {
   if (wrap) wrap.setAttribute("aria-label", t("legendWrapAria"));
 
   updateAboutModalI18n();
+  updateDataNotesModalI18n();
 
   const closeBtn = document.getElementById("aboutModalClose");
   if (closeBtn) closeBtn.setAttribute("aria-label", t("modalClose"));
+
+  const dataNotesClose = document.getElementById("dataNotesModalClose");
+  if (dataNotesClose) dataNotesClose.setAttribute("aria-label", t("modalClose"));
 
   rebuildFilterBar();
   rebuildLegendDom();
@@ -1998,6 +2145,7 @@ function updateLanguageUI() {
   updateFilterStatusBar();
   renderSearchResults();
   updateOnboardingHud();
+  updateHeroBlock();
 }
 
 function initLangToggle() {
@@ -2018,6 +2166,47 @@ function initAboutModal() {
   if (!modal || !btn) return;
 
   function openModal() {
+    const dataNotes = document.getElementById("dataNotesModal");
+    if (dataNotes?.classList.contains("is-open")) {
+      dataNotes.classList.remove("is-open");
+      dataNotes.setAttribute("aria-hidden", "true");
+    }
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    closeBtn?.focus();
+  }
+
+  function closeModal() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    btn.focus();
+  }
+
+  btn.addEventListener("click", openModal);
+  closeBtn?.addEventListener("click", closeModal);
+  backdrop?.addEventListener("click", closeModal);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+}
+
+function initDataNotesModal() {
+  const modal = document.getElementById("dataNotesModal");
+  const btn = document.getElementById("dataNotesBtn");
+  const closeBtn = document.getElementById("dataNotesModalClose");
+  const backdrop = document.getElementById("dataNotesModalBackdrop");
+  if (!modal || !btn) return;
+
+  function openModal() {
+    const about = document.getElementById("aboutModal");
+    if (about?.classList.contains("is-open")) {
+      about.classList.remove("is-open");
+      about.setAttribute("aria-hidden", "true");
+    }
     modal.classList.add("is-open");
     modal.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
@@ -2054,6 +2243,7 @@ function init() {
   initSearch();
   initClearFilters();
   initAboutModal();
+  initDataNotesModal();
   initOnboarding();
   initUrlStorySync();
   refreshGlobePoints();

@@ -11,16 +11,40 @@
   <body>
     <div class="bg-layer"></div>
     <div class="app">
-      <header class="topbar">
-        <div>
-          <h1 id="appTitle">世界神话地图</h1>
-          <p id="storyMeta">20 stories · 12 countries</p>
-        </div>
-        <div class="topbar-right">
-          <button type="button" id="langToggle" class="lang-toggle-btn" aria-label="Switch language">中文 / EN</button>
-          <button type="button" id="aboutBtn" class="about-btn">关于项目</button>
-          <div class="region-chip">
-            <span id="regionChipLabel">当前地区：</span><span id="currentRegion">Global</span>
+      <header class="hero-block" id="heroBlock" aria-labelledby="appTitle">
+        <div class="hero-block__glow" aria-hidden="true"></div>
+        <div class="hero-block__inner">
+          <div class="hero-block__main">
+            <h1 id="appTitle">世界神话地图</h1>
+            <p id="heroSubtitle" class="hero-block__subtitle"></p>
+            <p id="heroPitch" class="hero-block__pitch"></p>
+            <div class="hero-block__stats" id="heroStats" role="group" aria-label="">
+              <div class="hero-stat">
+                <span class="hero-stat__num" id="heroStatStoriesN"></span>
+                <span class="hero-stat__lbl" id="heroStatStoriesL"></span>
+              </div>
+              <div class="hero-stat">
+                <span class="hero-stat__num" id="heroStatCountriesN"></span>
+                <span class="hero-stat__lbl" id="heroStatCountriesL"></span>
+              </div>
+              <div class="hero-stat">
+                <span class="hero-stat__num" id="heroStatCoverageN"></span>
+                <span class="hero-stat__lbl" id="heroStatCoverageL"></span>
+              </div>
+            </div>
+            <div class="hero-block__ctas">
+              <button type="button" id="heroExploreBtn" class="hero-cta hero-cta--primary"></button>
+              <button type="button" id="heroRandomBtn" class="hero-cta hero-cta--ghost"></button>
+            </div>
+            <ul class="hero-tags" id="heroTags" aria-label=""></ul>
+          </div>
+          <div class="hero-block__toolbar">
+            <button type="button" id="langToggle" class="lang-toggle-btn" aria-label="Switch language">中文 / EN</button>
+            <button type="button" id="dataNotesBtn" class="about-btn data-notes-btn">数据说明</button>
+            <button type="button" id="aboutBtn" class="about-btn">关于项目</button>
+            <div class="region-chip">
+              <span id="regionChipLabel">当前地区：</span><span id="currentRegion">Global</span>
+            </div>
           </div>
         </div>
       </header>
@@ -52,10 +76,6 @@
             <h2 class="onboarding-hud__title" id="onboardingTitle"></h2>
             <p class="onboarding-hud__subtitle" id="onboardingSubtitle"></p>
             <ol class="onboarding-hud__tips" id="onboardingTips"></ol>
-          </div>
-          <div class="onboarding-hud__actions">
-            <button type="button" class="onboarding-hud__btn onboarding-hud__btn--primary" id="onboardingExploreBtn"></button>
-            <button type="button" class="onboarding-hud__btn onboarding-hud__btn--ghost" id="onboardingRandomBtn"></button>
           </div>
         </div>
       </section>
@@ -114,6 +134,25 @@
           <p id="aboutSec3Text">
             故事地点以文化起源地或代表性地区为主，部分神话/民间故事存在多个版本，数据仅作知识可视化参考。
           </p>
+        </section>
+      </div>
+    </div>
+
+    <div id="dataNotesModal" class="about-modal data-notes-modal-wrap" aria-hidden="true">
+      <div class="about-modal-backdrop" id="dataNotesModalBackdrop"></div>
+      <div class="about-modal-panel" role="dialog" aria-modal="true" aria-labelledby="dataNotesModalTitle">
+        <button type="button" class="about-modal-close" id="dataNotesModalClose" aria-label="关闭">×</button>
+        <h2 id="dataNotesModalTitle" class="about-modal-title">数据说明</h2>
+        <section class="about-modal-section">
+          <p id="dataNotesBody"></p>
+        </section>
+        <section class="about-modal-section">
+          <h3 id="dataNotesConfHeading"></h3>
+          <ul id="dataNotesConfList" class="about-modal-list"></ul>
+        </section>
+        <section class="about-modal-section">
+          <h3 id="dataNotesAddHeading"></h3>
+          <p id="dataNotesAddBody"></p>
         </section>
       </div>
     </div>
