@@ -1,6 +1,9 @@
 const stories = Array.isArray(window.STORIES) ? window.STORIES : [];
 
-const categories = ["All", "Sun", "Flood", "Fire", "Dragon", "Love", "Moon", "Princess"];
+/** 含 "All" + 数据中实际出现的分类（canonical），由 refreshCategoryLists 填充 */
+let categories = ["All"];
+/** 不含 All 的 canonical 分类列表，与图例、底栏按钮一一对应 */
+let storyCategoryKeys = [];
 let currentFilter = "All";
 let searchTerm = "";
 let selectedStory = null;
@@ -138,31 +141,109 @@ const CATEGORY_GLYPHS = {
   }
 };
 
+/** 归一化后再查图标：与 normalizeCategoryKey 输出一致 */
 const CATEGORY_KEY_ALIASES = {
   Dark: "Evil"
 };
 
-/** 图例行：key 对应 CATEGORY_GLYPHS；点击与筛选 currentFilter 一致（含暂无底部按钮的分类） */
-const CATEGORY_LEGEND_ROWS = [
-  { key: "Sun", en: "Sun", zh: "太阳" },
-  { key: "Flood", en: "Flood", zh: "洪水" },
-  { key: "Fire", en: "Fire", zh: "火焰" },
-  { key: "Dragon", en: "Dragon", zh: "龙" },
-  { key: "Love", en: "Love", zh: "爱情" },
-  { key: "Moon", en: "Moon", zh: "月亮" },
-  { key: "Princess", en: "Princess", zh: "公主" },
-  { key: "Hero", en: "Hero", zh: "英雄" },
-  { key: "Creation", en: "Creation", zh: "创世" },
-  { key: "Underworld", en: "Underworld", zh: "冥界" },
-  { key: "Trickster", en: "Trickster", zh: "诡计者" },
-  { key: "Monster", en: "Monster", zh: "怪物" },
-  { key: "Evil", en: "Evil / Dark", zh: "黑暗" }
+/** 底栏 / 图例排序：其余未知分类按字母排在后面 */
+const CATEGORY_SORT_ORDER = [
+  "Sun",
+  "Flood",
+  "Fire",
+  "Dragon",
+  "Love",
+  "Moon",
+  "Princess",
+  "Hero",
+  "Creation",
+  "Underworld",
+  "Trickster",
+  "Monster",
+  "Evil"
 ];
 
-const LEGEND_FILTER_KEYS = new Set(CATEGORY_LEGEND_ROWS.map((r) => r.key));
+/** 图例展示用中文名；英文默认用 canonical key，Evil 行显示 Evil / Dark */
+const CATEGORY_LABEL_META = {
+  Sun: { zh: "太阳" },
+  Flood: { zh: "洪水" },
+  Fire: { zh: "火焰" },
+  Dragon: { zh: "龙" },
+  Love: { zh: "爱情" },
+  Moon: { zh: "月亮" },
+  Princess: { zh: "公主" },
+  Hero: { zh: "英雄" },
+  Creation: { zh: "创世" },
+  Underworld: { zh: "冥界" },
+  Trickster: { zh: "诡计者" },
+  Monster: { zh: "怪物" },
+  Evil: { en: "Evil / Dark", zh: "黑暗" }
+};
+
+const GLYPH_CATEGORY_KEYS = Object.keys(CATEGORY_GLYPHS).filter((k) => k !== "__default");
+
+/**
+ * 将 story.category 规范为与筛选、图例、底栏共用的 canonical key（trim、大小写、别名）
+ */
+function normalizeCategoryKey(raw) {
+  if (raw == null) return "";
+  const s = String(raw).trim();
+  if (!s) return "";
+  const spaced = s.replace(/\s+/g, " ");
+  const lower = spaced.toLowerCase();
+  const compact = lower.replace(/\s/g, "");
+
+  if (compact === "underworld" || lower === "under world") return "Underworld";
+
+  if (
+    lower === "evil / dark" ||
+    lower === "evil/dark" ||
+    compact === "evil" ||
+    compact === "dark" ||
+    compact === "evildark"
+  ) {
+    return "Evil";
+  }
+
+  const hit = GLYPH_CATEGORY_KEYS.find((k) => k.toLowerCase() === lower || k.toLowerCase() === compact);
+  if (hit) return hit;
+
+  if (Object.prototype.hasOwnProperty.call(CATEGORY_KEY_ALIASES, spaced))
+    return CATEGORY_KEY_ALIASES[spaced];
+  if (Object.prototype.hasOwnProperty.call(CATEGORY_KEY_ALIASES, s)) return CATEGORY_KEY_ALIASES[s];
+
+  return spaced
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function sortCategoryKeys(keys) {
+  const set = new Set(keys);
+  const head = CATEGORY_SORT_ORDER.filter((k) => set.has(k));
+  const tail = keys.filter((k) => !head.includes(k)).sort((a, b) => a.localeCompare(b));
+  return [...head, ...tail];
+}
+
+function computeStoryCategoryKeys() {
+  const set = new Set();
+  stories.forEach((item) => {
+    const k = normalizeCategoryKey(item.category);
+    if (k) set.add(k);
+  });
+  return sortCategoryKeys([...set]);
+}
+
+function getLegendLabels(canonicalKey) {
+  const meta = CATEGORY_LABEL_META[canonicalKey];
+  const en = meta && meta.en ? meta.en : canonicalKey;
+  const zh = meta && meta.zh ? meta.zh : canonicalKey;
+  return { en, zh };
+}
 
 function getCategoryMarkerLook(category) {
-  let key = category != null && String(category).trim() !== "" ? String(category).trim() : "";
+  let key = normalizeCategoryKey(category || "");
   if (key && CATEGORY_KEY_ALIASES[key]) key = CATEGORY_KEY_ALIASES[key];
   if (key && CATEGORY_GLYPHS[key]) return CATEGORY_GLYPHS[key];
   return CATEGORY_GLYPHS.__default;
@@ -186,13 +267,12 @@ function syncLegendActive() {
 }
 
 /**
- * 与底部分类按钮共用同一套筛选状态；图例项点击亦走此函数。
- * 允许 LEGEND_FILTER_KEYS 中的分类（即使底部栏暂无对应按钮）。
+ * 与底部分类按钮、图例共用 currentFilter；仅接受 categories 中的值（由数据推导）。
  */
 function applyCategoryFilter(filter) {
   if (filter === "All") {
     currentFilter = "All";
-  } else if (categories.includes(filter) || LEGEND_FILTER_KEYS.has(filter)) {
+  } else if (categories.includes(filter)) {
     currentFilter = filter;
   } else {
     return;
@@ -403,7 +483,8 @@ function buildSearchKeywords(rawTerm) {
 function getFilteredStories() {
   const terms = buildSearchKeywords(searchTerm);
   return stories.filter((item) => {
-    const passCategory = currentFilter === "All" || item.category === currentFilter;
+    const itemCat = normalizeCategoryKey(item.category);
+    const passCategory = currentFilter === "All" || itemCat === currentFilter;
     if (!passCategory) return false;
     if (!terms.length) return true;
 
@@ -519,9 +600,18 @@ function buildSelectedStoryCardHtml(s) {
 }
 
 function renderStoryCard() {
-  if (getFilteredStories().length === 0) {
-    storyCardEl.innerHTML =
-      '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
+  const filtered = getFilteredStories();
+  if (filtered.length === 0) {
+    if (String(searchTerm || "").trim()) {
+      storyCardEl.innerHTML =
+        '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
+    } else if (currentFilter !== "All") {
+      storyCardEl.innerHTML =
+        '<p class="placeholder">当前分类暂无故事，请尝试选择其他分类。</p>';
+    } else {
+      storyCardEl.innerHTML =
+        '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
+    }
     return;
   }
 
@@ -642,30 +732,39 @@ function refreshGlobePoints() {
     .ringRepeatPeriod(1200);
 }
 
-function initFilters() {
+function rebuildFilterBar() {
   if (!filterBarEl) return;
-  filterBarEl.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLButtonElement)) return;
-    const filter = target.dataset.filter;
-    if (!categories.includes(filter)) return;
-    applyCategoryFilter(filter);
+  const prev = currentFilter;
+  filterBarEl.innerHTML = "";
+  const allBtn = document.createElement("button");
+  allBtn.type = "button";
+  allBtn.dataset.filter = "All";
+  allBtn.textContent = "All";
+  if (prev === "All") allBtn.classList.add("active");
+  filterBarEl.appendChild(allBtn);
+  storyCategoryKeys.forEach((cat) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.filter = cat;
+    b.textContent = cat;
+    if (prev === cat) b.classList.add("active");
+    filterBarEl.appendChild(b);
   });
 }
 
-function initLegend() {
+function rebuildLegendDom() {
   const legendEl = document.getElementById("categoryLegend");
   if (!legendEl) return;
-
   legendEl.innerHTML = "";
-  CATEGORY_LEGEND_ROWS.forEach((row) => {
-    const look = getCategoryMarkerLook(row.key);
+  storyCategoryKeys.forEach((key) => {
+    const look = getCategoryMarkerLook(key);
+    const { en, zh } = getLegendLabels(key);
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "legend-item";
-    btn.dataset.legendFilter = row.key;
+    btn.dataset.legendFilter = key;
     btn.setAttribute("aria-pressed", "false");
-    btn.setAttribute("aria-label", `${row.en}，${row.zh}`);
+    btn.setAttribute("aria-label", `${en}，${zh}`);
 
     const badge = document.createElement("span");
     badge.className = "legend-badge";
@@ -682,14 +781,14 @@ function initLegend() {
 
     const textWrap = document.createElement("span");
     textWrap.className = "legend-item__text";
-    const en = document.createElement("span");
-    en.className = "legend-item__en";
-    en.textContent = row.en;
-    const zh = document.createElement("span");
-    zh.className = "legend-item__zh";
-    zh.textContent = row.zh;
-    textWrap.appendChild(en);
-    textWrap.appendChild(zh);
+    const enEl = document.createElement("span");
+    enEl.className = "legend-item__en";
+    enEl.textContent = en;
+    const zhEl = document.createElement("span");
+    zhEl.className = "legend-item__zh";
+    zhEl.textContent = zh;
+    textWrap.appendChild(enEl);
+    textWrap.appendChild(zhEl);
 
     badge.appendChild(halo);
     badge.appendChild(icon);
@@ -697,16 +796,42 @@ function initLegend() {
     btn.appendChild(textWrap);
     legendEl.appendChild(btn);
   });
+  syncLegendActive();
+}
 
-  legendEl.addEventListener("click", (event) => {
+function refreshCategoryLists() {
+  storyCategoryKeys = computeStoryCategoryKeys();
+  categories = ["All", ...storyCategoryKeys];
+  if (currentFilter !== "All" && !categories.includes(currentFilter)) {
+    currentFilter = "All";
+  }
+  rebuildFilterBar();
+  rebuildLegendDom();
+}
+
+function initFilters() {
+  if (!filterBarEl || filterBarEl.dataset.filterNavBound === "1") return;
+  filterBarEl.dataset.filterNavBound = "1";
+  filterBarEl.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLButtonElement)) return;
+    const filter = target.dataset.filter;
+    if (!categories.includes(filter)) return;
+    applyCategoryFilter(filter);
+  });
+}
+
+function initLegendNav() {
+  const wrap = document.getElementById("categoryLegendWrap");
+  if (!wrap || wrap.dataset.legendNavBound === "1") return;
+  wrap.dataset.legendNavBound = "1";
+  wrap.addEventListener("click", (event) => {
     const item = event.target.closest(".legend-item");
     if (!item || !(item instanceof HTMLButtonElement)) return;
     const f = item.dataset.legendFilter;
-    if (!f || !LEGEND_FILTER_KEYS.has(f)) return;
+    if (!f || !categories.includes(f)) return;
     applyCategoryFilter(f);
   });
-
-  syncLegendActive();
 }
 
 function initSearch() {
@@ -808,8 +933,9 @@ function initAboutModal() {
 
 function init() {
   initGlobe();
+  refreshCategoryLists();
+  initLegendNav();
   initFilters();
-  initLegend();
   initSearch();
   initAboutModal();
   refreshGlobePoints();
