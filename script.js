@@ -116,7 +116,17 @@ const I18N = {
     storyExpandMore: "展开故事",
     storyShowLess: "收起故事",
     storyDetailTitle: "故事详情",
-    storyMeaningTitle: "文化含义"
+    storyMeaningTitle: "文化含义",
+    onboardHudAria: "新手引导与探索入口",
+    onboardKicker: "任务简报 · MISSION",
+    onboardTitle: "开始探索世界神话",
+    onboardSubtitle: "拖动地球，点击发光点位，打开来自不同文明的古老故事。",
+    onboardTip1: "拖动地球探索文明坐标",
+    onboardTip2: "点击点位阅读故事档案",
+    onboardTip3: "使用搜索、分类和排行榜快速发现故事",
+    onboardExploreBtn: "开始探索",
+    onboardRandomBtn: "随机故事",
+    onboardRandomDisabledTitle: "当前筛选条件下暂无可用故事"
   },
   en: {
     langToggleLabel: "CN / English",
@@ -179,7 +189,18 @@ const I18N = {
     storyExpandMore: "Read more",
     storyShowLess: "Show less",
     storyDetailTitle: "Story detail",
-    storyMeaningTitle: "Cultural meaning"
+    storyMeaningTitle: "Cultural meaning",
+    onboardHudAria: "Onboarding and exploration entry",
+    onboardKicker: "MISSION BRIEF",
+    onboardTitle: "Start Exploring World Myth",
+    onboardSubtitle:
+      "Drag the globe and click glowing points to uncover ancient stories from world civilizations.",
+    onboardTip1: "Drag the globe to explore civilizations",
+    onboardTip2: "Click a point to read a story archive",
+    onboardTip3: "Use search, categories, and ranking to discover stories",
+    onboardExploreBtn: "Start Exploring",
+    onboardRandomBtn: "Random Story",
+    onboardRandomDisabledTitle: "No stories match the current filters"
   }
 };
 
@@ -545,6 +566,7 @@ function applyCategoryFilter(filter) {
   syncLegendActive();
   updateFilterStatusBar();
   renderSearchResults();
+  updateOnboardingHud();
 }
 
 const countryAliasMap = {
@@ -782,6 +804,54 @@ function updateHeader() {
   } else {
     currentRegionEl.textContent = t("globalRegion");
   }
+}
+
+function updateOnboardingHud() {
+  const hud = document.getElementById("onboardingHud");
+  const kicker = document.getElementById("onboardingKicker");
+  const title = document.getElementById("onboardingTitle");
+  const subtitle = document.getElementById("onboardingSubtitle");
+  const tipsEl = document.getElementById("onboardingTips");
+  const exploreBtn = document.getElementById("onboardingExploreBtn");
+  const randomBtn = document.getElementById("onboardingRandomBtn");
+  if (!hud || !kicker || !title || !subtitle || !tipsEl || !exploreBtn || !randomBtn) return;
+
+  hud.setAttribute("aria-label", t("onboardHudAria"));
+  kicker.textContent = t("onboardKicker");
+  title.textContent = t("onboardTitle");
+  subtitle.textContent = t("onboardSubtitle");
+  exploreBtn.textContent = t("onboardExploreBtn");
+  randomBtn.textContent = t("onboardRandomBtn");
+
+  tipsEl.innerHTML = "";
+  ["onboardTip1", "onboardTip2", "onboardTip3"].forEach((key) => {
+    const li = document.createElement("li");
+    li.textContent = t(key);
+    tipsEl.appendChild(li);
+  });
+
+  const empty = getFilteredStories().length === 0;
+  randomBtn.disabled = empty;
+  randomBtn.title = empty ? t("onboardRandomDisabledTitle") : "";
+}
+
+function initOnboarding() {
+  const exploreBtn = document.getElementById("onboardingExploreBtn");
+  const randomBtn = document.getElementById("onboardingRandomBtn");
+  if (!exploreBtn || !randomBtn || exploreBtn.dataset.onboardingBound === "1") return;
+  exploreBtn.dataset.onboardingBound = "1";
+  randomBtn.dataset.onboardingBound = "1";
+  exploreBtn.addEventListener("click", () => {
+    const target = document.querySelector(".globe-panel");
+    if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  });
+  randomBtn.addEventListener("click", () => {
+    if (randomBtn.disabled) return;
+    const list = getFilteredStories();
+    if (!list.length) return;
+    const story = list[Math.floor(Math.random() * list.length)];
+    selectStoryAndRefresh(story);
+  });
 }
 
 function escapeHtml(value) {
@@ -1160,6 +1230,7 @@ function applyRankingCountryToggle(country) {
   updateHeader();
   updateFilterStatusBar();
   renderSearchResults();
+  updateOnboardingHud();
 }
 
 function initStoryCardDetailsToggle() {
@@ -1487,6 +1558,7 @@ function initSearch() {
     updateHeader();
     updateFilterStatusBar();
     renderSearchResults();
+    updateOnboardingHud();
   });
 }
 
@@ -1654,6 +1726,7 @@ function updateLanguageUI() {
   renderCountryRanking();
   updateFilterStatusBar();
   renderSearchResults();
+  updateOnboardingHud();
 }
 
 function initLangToggle() {
@@ -1711,6 +1784,7 @@ function init() {
   initSearch();
   initClearFilters();
   initAboutModal();
+  initOnboarding();
   refreshGlobePoints();
   updateLanguageUI();
 }
