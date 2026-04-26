@@ -142,6 +142,25 @@ const CATEGORY_KEY_ALIASES = {
   Dark: "Evil"
 };
 
+/** 图例行：key 对应 CATEGORY_GLYPHS；点击与筛选 currentFilter 一致（含暂无底部按钮的分类） */
+const CATEGORY_LEGEND_ROWS = [
+  { key: "Sun", en: "Sun", zh: "太阳" },
+  { key: "Flood", en: "Flood", zh: "洪水" },
+  { key: "Fire", en: "Fire", zh: "火焰" },
+  { key: "Dragon", en: "Dragon", zh: "龙" },
+  { key: "Love", en: "Love", zh: "爱情" },
+  { key: "Moon", en: "Moon", zh: "月亮" },
+  { key: "Princess", en: "Princess", zh: "公主" },
+  { key: "Hero", en: "Hero", zh: "英雄" },
+  { key: "Creation", en: "Creation", zh: "创世" },
+  { key: "Underworld", en: "Underworld", zh: "冥界" },
+  { key: "Trickster", en: "Trickster", zh: "诡计者" },
+  { key: "Monster", en: "Monster", zh: "怪物" },
+  { key: "Evil", en: "Evil / Dark", zh: "黑暗" }
+];
+
+const LEGEND_FILTER_KEYS = new Set(CATEGORY_LEGEND_ROWS.map((r) => r.key));
+
 function getCategoryMarkerLook(category) {
   let key = category != null && String(category).trim() !== "" ? String(category).trim() : "";
   if (key && CATEGORY_KEY_ALIASES[key]) key = CATEGORY_KEY_ALIASES[key];
@@ -153,6 +172,48 @@ function getSelectedRingColor() {
   if (!selectedStory) return "rgba(150, 160, 195, 0.42)";
   const look = getCategoryMarkerLook(selectedStory.category);
   return look.ringColor || "rgba(190, 175, 255, 0.55)";
+}
+
+function syncLegendActive() {
+  const wrap = document.getElementById("categoryLegendWrap");
+  if (!wrap) return;
+  wrap.querySelectorAll(".legend-item").forEach((el) => {
+    const f = el.dataset.legendFilter;
+    const on = f === currentFilter;
+    el.classList.toggle("is-active", on);
+    el.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+
+/**
+ * 与底部分类按钮共用同一套筛选状态；图例项点击亦走此函数。
+ * 允许 LEGEND_FILTER_KEYS 中的分类（即使底部栏暂无对应按钮）。
+ */
+function applyCategoryFilter(filter) {
+  if (filter === "All") {
+    currentFilter = "All";
+  } else if (categories.includes(filter) || LEGEND_FILTER_KEYS.has(filter)) {
+    currentFilter = filter;
+  } else {
+    return;
+  }
+
+  const filtered = getFilteredStories();
+  if (selectedStory && !filtered.includes(selectedStory)) {
+    selectedStory = null;
+  }
+
+  if (filterBarEl) {
+    Array.from(filterBarEl.querySelectorAll("button")).forEach((btn) => {
+      btn.classList.toggle("active", btn.dataset.filter === currentFilter);
+    });
+  }
+
+  refreshGlobePoints();
+  renderStoryCard();
+  renderCountryRanking();
+  updateHeader();
+  syncLegendActive();
 }
 
 const countryAliasMap = {
@@ -582,28 +643,70 @@ function refreshGlobePoints() {
 }
 
 function initFilters() {
+  if (!filterBarEl) return;
   filterBarEl.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof HTMLButtonElement)) return;
     const filter = target.dataset.filter;
     if (!categories.includes(filter)) return;
-
-    currentFilter = filter;
-    const filtered = getFilteredStories();
-
-    if (selectedStory && !filtered.includes(selectedStory)) {
-      selectedStory = null;
-    }
-
-    Array.from(filterBarEl.querySelectorAll("button")).forEach((btn) => {
-      btn.classList.toggle("active", btn.dataset.filter === currentFilter);
-    });
-
-    refreshGlobePoints();
-    renderStoryCard();
-    renderCountryRanking();
-    updateHeader();
+    applyCategoryFilter(filter);
   });
+}
+
+function initLegend() {
+  const legendEl = document.getElementById("categoryLegend");
+  if (!legendEl) return;
+
+  legendEl.innerHTML = "";
+  CATEGORY_LEGEND_ROWS.forEach((row) => {
+    const look = getCategoryMarkerLook(row.key);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "legend-item";
+    btn.dataset.legendFilter = row.key;
+    btn.setAttribute("aria-pressed", "false");
+    btn.setAttribute("aria-label", `${row.en}，${row.zh}`);
+
+    const badge = document.createElement("span");
+    badge.className = "legend-badge";
+    badge.style.setProperty("--marker-color", look.color);
+    badge.style.setProperty("--glow-color", look.glowColor || look.color);
+    badge.setAttribute("aria-hidden", "true");
+
+    const halo = document.createElement("span");
+    halo.className = "legend-badge__halo";
+
+    const icon = document.createElement("span");
+    icon.className = "legend-badge__icon";
+    icon.innerHTML = look.svg;
+
+    const textWrap = document.createElement("span");
+    textWrap.className = "legend-item__text";
+    const en = document.createElement("span");
+    en.className = "legend-item__en";
+    en.textContent = row.en;
+    const zh = document.createElement("span");
+    zh.className = "legend-item__zh";
+    zh.textContent = row.zh;
+    textWrap.appendChild(en);
+    textWrap.appendChild(zh);
+
+    badge.appendChild(halo);
+    badge.appendChild(icon);
+    btn.appendChild(badge);
+    btn.appendChild(textWrap);
+    legendEl.appendChild(btn);
+  });
+
+  legendEl.addEventListener("click", (event) => {
+    const item = event.target.closest(".legend-item");
+    if (!item || !(item instanceof HTMLButtonElement)) return;
+    const f = item.dataset.legendFilter;
+    if (!f || !LEGEND_FILTER_KEYS.has(f)) return;
+    applyCategoryFilter(f);
+  });
+
+  syncLegendActive();
 }
 
 function initSearch() {
@@ -706,6 +809,7 @@ function initAboutModal() {
 function init() {
   initGlobe();
   initFilters();
+  initLegend();
   initSearch();
   initAboutModal();
   refreshGlobePoints();
