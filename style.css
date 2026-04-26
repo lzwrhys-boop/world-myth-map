@@ -105,6 +105,31 @@ h1 {
   flex-shrink: 0;
 }
 
+.lang-toggle-btn {
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-soft);
+  background: rgba(4, 5, 10, 0.75);
+  cursor: pointer;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) inset;
+}
+
+.lang-toggle-btn:hover {
+  border-color: rgba(180, 195, 220, 0.35);
+  background: rgba(10, 12, 20, 0.9);
+  color: var(--silver);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.4) inset,
+    0 0 28px rgba(100, 130, 180, 0.08),
+    0 0 20px var(--accent-amber-soft);
+}
+
 .about-btn {
   border: 1px solid var(--line-strong);
   border-radius: 999px;
@@ -1105,6 +1130,11 @@ h2 {
     justify-content: flex-end;
     flex-wrap: wrap;
     gap: 8px;
+  }
+
+  .lang-toggle-btn {
+    font-size: 11px;
+    padding: 6px 10px;
   }
 
   .about-btn {

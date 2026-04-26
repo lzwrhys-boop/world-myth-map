@@ -13,13 +13,14 @@
     <div class="app">
       <header class="topbar">
         <div>
-          <h1>世界神话地图</h1>
+          <h1 id="appTitle">世界神话地图</h1>
           <p id="storyMeta">20 stories · 12 countries</p>
         </div>
         <div class="topbar-right">
+          <button type="button" id="langToggle" class="lang-toggle-btn" aria-label="Switch language">中文 / EN</button>
           <button type="button" id="aboutBtn" class="about-btn">关于项目</button>
           <div class="region-chip">
-            当前地区：<span id="currentRegion">Global</span>
+            <span id="regionChipLabel">当前地区：</span><span id="currentRegion">Global</span>
           </div>
         </div>
       </header>
@@ -47,14 +48,14 @@
 
         <aside class="side-panel">
           <section class="card-block" id="storyCardSection">
-            <h2>故事卡片</h2>
+            <h2 id="storyCardHeading">故事卡片</h2>
             <div id="storyCard" class="story-card">
               <p class="placeholder">点击地球上的发光点位，打开一段来自世界文明的古老故事。</p>
             </div>
           </section>
 
           <section class="rank-block">
-            <h2>国家排行榜 · 按收录故事数</h2>
+            <h2 id="countryRankingHeading">国家排行榜 · 按收录故事数</h2>
             <ul id="countryRanking"></ul>
           </section>
         </aside>
@@ -66,16 +67,16 @@
       <div class="about-modal-panel" role="dialog" aria-modal="true" aria-labelledby="aboutModalTitle">
         <button type="button" class="about-modal-close" id="aboutModalClose" aria-label="关闭">×</button>
         <h2 id="aboutModalTitle" class="about-modal-title">世界神话地图</h2>
-        <p class="about-modal-lead">About</p>
+        <p id="aboutModalLead" class="about-modal-lead">关于</p>
         <section class="about-modal-section">
-          <h3>项目介绍</h3>
-          <p>
+          <h3 id="aboutSec1Title">项目介绍</h3>
+          <p id="aboutSec1Text">
             这是一个用 3D 地球可视化展示世界各地神话、童话、民间传说与史诗故事的互动地图。
           </p>
         </section>
         <section class="about-modal-section">
-          <h3>使用方法</h3>
-          <ol class="about-modal-list">
+          <h3 id="aboutSec2Title">使用方法</h3>
+          <ol id="aboutSec2List" class="about-modal-list">
             <li>拖动地球查看不同地区</li>
             <li>点击发光点位查看故事卡片</li>
             <li>使用搜索框搜索国家、故事名或分类</li>
@@ -83,8 +84,8 @@
           </ol>
         </section>
         <section class="about-modal-section">
-          <h3>数据说明</h3>
-          <p>
+          <h3 id="aboutSec3Title">数据说明</h3>
+          <p id="aboutSec3Text">
             故事地点以文化起源地或代表性地区为主，部分神话/民间故事存在多个版本，数据仅作知识可视化参考。
           </p>
         </section>

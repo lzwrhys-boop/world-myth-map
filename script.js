@@ -23,6 +23,120 @@ const searchInputEl =
   document.querySelector('input[type="search"]') ||
   document.querySelector('input[placeholder*="搜索"]');
 
+/** @type {'zh' | 'en'} */
+let currentLang = "zh";
+
+const I18N = {
+  zh: {
+    langToggleLabel: "中文 / EN",
+    docTitle: "世界神话地图",
+    appHeading: "世界神话地图",
+    storyMetaTpl: "{n} 个故事 · {c} 个国家/地区",
+    searchPlaceholder: "搜索故事名 / 国家 / 分类，例如 China、Japan、Dragon",
+    storyCardSectionTitle: "故事卡片",
+    storyCardDefaultHint: "点击地球上的发光点位，打开一段来自世界文明的古老故事。",
+    countryRankingTitle: "国家排行榜 · 按收录故事数",
+    legendHint: "图例",
+    legendWrapAria: "点位分类图例",
+    aboutButton: "关于项目",
+    regionChipPrefix: "当前地区：",
+    globalRegion: "全球",
+    filterAll: "全部",
+    chipCountry: "国家",
+    chipRegion: "地区",
+    chipCategory: "分类",
+    chipEra: "时代",
+    chipSourceType: "类型",
+    chipConfidence: "可信度",
+    storyCardFoot:
+      "地点以文化起源地或代表性地区标注，部分故事存在多个版本。",
+    storyEmptyFiltered: "当前筛选条件下暂无故事，请尝试切换分类或清空搜索。",
+    storyEmptySearch: "没有找到相关故事，请尝试搜索国家、故事名或分类。",
+    storyFilteredHintTpl: "已筛选 {country}，点击地球点位查看故事。",
+    rankingFilterAriaTpl: "筛选 {country}",
+    modalClose: "关闭",
+    aboutModalTitle: "世界神话地图",
+    aboutModalLead: "关于",
+    aboutSec1Title: "项目介绍",
+    aboutSec1Text:
+      "这是一个用 3D 地球可视化展示世界各地神话、童话、民间传说与史诗故事的互动地图。",
+    aboutSec2Title: "使用方法",
+    aboutSec2Li1: "拖动地球查看不同地区",
+    aboutSec2Li2: "点击发光点位查看故事卡片",
+    aboutSec2Li3: "使用搜索框搜索国家、故事名或分类",
+    aboutSec2Li4: "使用底部分类按钮筛选故事类型",
+    aboutSec3Title: "数据说明",
+    aboutSec3Text:
+      "故事地点以文化起源地或代表性地区为主，部分神话/民间故事存在多个版本，数据仅作知识可视化参考。",
+    confHigh: "较高可信",
+    confMedium: "代表性地区",
+    confLow: "存在争议"
+  },
+  en: {
+    langToggleLabel: "CN / English",
+    docTitle: "World Myth Map",
+    appHeading: "World Myth Map",
+    storyMetaTpl: "{n} stories · {c} countries/regions",
+    searchPlaceholder: "Search story, country, or category, e.g. China, Japan, Dragon",
+    storyCardSectionTitle: "Story Card",
+    storyCardDefaultHint:
+      "Click a glowing point on the globe to open an ancient story from world civilizations.",
+    countryRankingTitle: "Country Ranking · By Collected Stories",
+    legendHint: "Legend",
+    legendWrapAria: "Category legend for map points",
+    aboutButton: "About",
+    regionChipPrefix: "Region: ",
+    globalRegion: "Global",
+    filterAll: "All",
+    chipCountry: "Country",
+    chipRegion: "Region",
+    chipCategory: "Category",
+    chipEra: "Era",
+    chipSourceType: "Type",
+    chipConfidence: "Confidence",
+    storyCardFoot:
+      "Locations emphasize cultural origins or representative regions; many tales exist in multiple versions.",
+    storyEmptyFiltered:
+      "No stories match the current filters. Try another category or clear the search.",
+    storyEmptySearch: "No stories found. Try a country, title, or category.",
+    storyFilteredHintTpl: "Filtered to {country}. Click a glowing point on the globe to read a story.",
+    rankingFilterAriaTpl: "Filter by {country}",
+    modalClose: "Close",
+    aboutModalTitle: "World Myth Map",
+    aboutModalLead: "About",
+    aboutSec1Title: "Introduction",
+    aboutSec1Text:
+      "An interactive 3D globe that visualizes myths, fairy tales, folk tales, and epics from cultures around the world.",
+    aboutSec2Title: "How to use",
+    aboutSec2Li1: "Drag the globe to explore different regions",
+    aboutSec2Li2: "Click a glowing point to open the story card",
+    aboutSec2Li3: "Search by country, story name, or category",
+    aboutSec2Li4: "Use the category chips at the bottom to filter story types",
+    aboutSec3Title: "Data note",
+    aboutSec3Text:
+      "Story locations emphasize cultural origins or representative regions; many tales exist in multiple versions. Data is for reference only.",
+    confHigh: "High confidence",
+    confMedium: "Representative region",
+    confLow: "Disputed"
+  }
+};
+
+function t(key) {
+  const pack = I18N[currentLang];
+  return pack && Object.prototype.hasOwnProperty.call(pack, key) ? pack[key] : key;
+}
+
+function formatTpl(str, vars) {
+  return String(str).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : ""));
+}
+
+function getFilterButtonLabel(filterKey) {
+  if (filterKey === "All") return t("filterAll");
+  if (currentLang === "en") return filterKey;
+  const { zh } = getLegendLabels(filterKey);
+  return zh;
+}
+
 /**
  * 地图点位：分类图标徽章（仅外观；统一 24 视图 SVG + stroke，无 emoji）
  * 字段：svg、color（图标主色）、glowColor（外晕）、cls（修饰类名）、ringColor（选中时 Globe 波纹）
@@ -520,13 +634,15 @@ function getFilteredStories() {
 
 function updateHeader() {
   const countries = new Set(stories.map((item) => item.country));
-  storyMetaEl.textContent = `${stories.length} stories · ${countries.size} countries`;
+  const n = stories.length;
+  const c = countries.size;
+  storyMetaEl.textContent = formatTpl(t("storyMetaTpl"), { n, c });
   if (selectedStory) {
     currentRegionEl.textContent = selectedStory.country;
   } else if (rankingCountryFilter) {
     currentRegionEl.textContent = rankingCountryFilter;
   } else {
-    currentRegionEl.textContent = "Global";
+    currentRegionEl.textContent = t("globalRegion");
   }
 }
 
@@ -546,53 +662,70 @@ function hasDisplayText(value) {
 function getConfidenceChip(value) {
   if (!hasDisplayText(value)) return null;
   const k = String(value).trim().toLowerCase();
-  if (k === "high") return { text: "较高可信", key: "high" };
-  if (k === "medium") return { text: "代表性地区", key: "medium" };
-  if (k === "low") return { text: "存在争议", key: "low" };
+  if (k === "high") return { text: t("confHigh"), key: "high" };
+  if (k === "medium") return { text: t("confMedium"), key: "medium" };
+  if (k === "low") return { text: t("confLow"), key: "low" };
   return { text: String(value).trim(), key: "other" };
 }
 
 function buildSelectedStoryCardHtml(s) {
   const blocks = [];
-  if (hasDisplayText(s.cn)) {
-    blocks.push(`<h3 class="story-card__title">${escapeHtml(s.cn)}</h3>`);
-  }
-  if (hasDisplayText(s.en)) {
-    blocks.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.en)}</p>`);
+  if (currentLang === "zh") {
+    if (hasDisplayText(s.cn)) {
+      blocks.push(`<h3 class="story-card__title">${escapeHtml(s.cn)}</h3>`);
+    }
+    if (hasDisplayText(s.en)) {
+      blocks.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.en)}</p>`);
+    }
+  } else {
+    if (hasDisplayText(s.en)) {
+      blocks.push(`<h3 class="story-card__title">${escapeHtml(s.en)}</h3>`);
+    }
+    if (hasDisplayText(s.cn)) {
+      blocks.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.cn)}</p>`);
+    }
   }
 
   const chipParts = [];
   if (hasDisplayText(s.country)) {
     chipParts.push(
-      `<span class="story-chip story-chip--country" title="国家">${escapeHtml(s.country)}</span>`
+      `<span class="story-chip story-chip--country" title="${escapeHtml(t("chipCountry"))}">${escapeHtml(
+        s.country
+      )}</span>`
     );
   }
   if (hasDisplayText(s.region)) {
     chipParts.push(
-      `<span class="story-chip story-chip--region" title="地区">${escapeHtml(s.region)}</span>`
+      `<span class="story-chip story-chip--region" title="${escapeHtml(t("chipRegion"))}">${escapeHtml(
+        s.region
+      )}</span>`
     );
   }
   if (hasDisplayText(s.category)) {
     chipParts.push(
-      `<span class="story-chip story-chip--category" title="分类">${escapeHtml(s.category)}</span>`
+      `<span class="story-chip story-chip--category" title="${escapeHtml(t("chipCategory"))}">${escapeHtml(
+        s.category
+      )}</span>`
     );
   }
   if (hasDisplayText(s.sourceType)) {
     chipParts.push(
-      `<span class="story-chip story-chip--sourcetype" title="类型">${escapeHtml(s.sourceType)}</span>`
+      `<span class="story-chip story-chip--sourcetype" title="${escapeHtml(t("chipSourceType"))}">${escapeHtml(
+        s.sourceType
+      )}</span>`
     );
   }
   if (hasDisplayText(s.era)) {
     chipParts.push(
-      `<span class="story-chip story-chip--era" title="时代">${escapeHtml(s.era)}</span>`
+      `<span class="story-chip story-chip--era" title="${escapeHtml(t("chipEra"))}">${escapeHtml(s.era)}</span>`
     );
   }
   const confChip = getConfidenceChip(s.confidence);
   if (confChip) {
     chipParts.push(
-      `<span class="story-chip story-chip--confidence story-chip--conf-${confChip.key}" title="可信度">${escapeHtml(
-        confChip.text
-      )}</span>`
+      `<span class="story-chip story-chip--confidence story-chip--conf-${confChip.key}" title="${escapeHtml(
+        t("chipConfidence")
+      )}">${escapeHtml(confChip.text)}</span>`
     );
   }
   if (chipParts.length) {
@@ -608,9 +741,7 @@ function buildSelectedStoryCardHtml(s) {
     blocks.push(`<p class="story-card__summary">${escapeHtml(summaryText)}</p>`);
   }
 
-  blocks.push(
-    '<p class="story-card__foot">地点以文化起源地或代表性地区标注，部分故事存在多个版本。</p>'
-  );
+  blocks.push(`<p class="story-card__foot">${escapeHtml(t("storyCardFoot"))}</p>`);
   return blocks.join("");
 }
 
@@ -618,23 +749,20 @@ function renderStoryCard() {
   const filtered = getFilteredStories();
   if (filtered.length === 0) {
     if (rankingCountryFilter || currentFilter !== "All") {
-      storyCardEl.innerHTML =
-        '<p class="placeholder">当前筛选条件下暂无故事，请尝试切换分类或清空搜索。</p>';
+      storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyEmptyFiltered"))}</p>`;
     } else {
-      storyCardEl.innerHTML =
-        '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
+      storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyEmptySearch"))}</p>`;
     }
     return;
   }
 
   if (!selectedStory) {
     if (rankingCountryFilter) {
-      storyCardEl.innerHTML = `<p class="placeholder">已筛选 ${escapeHtml(
-        rankingCountryFilter
-      )}，点击地球点位查看故事。</p>`;
+      storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(
+        formatTpl(t("storyFilteredHintTpl"), { country: rankingCountryFilter })
+      )}</p>`;
     } else {
-      storyCardEl.innerHTML =
-        '<p class="placeholder">点击地球上的发光点位，打开一段来自世界文明的古老故事。</p>';
+      storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyCardDefaultHint"))}</p>`;
     }
     return;
   }
@@ -663,7 +791,8 @@ function renderCountryRanking() {
       const selected = rankingCountryFilter === country;
       const selClass = selected ? " is-country-selected" : "";
       const pressed = selected ? "true" : "false";
-      return `<li class="country-ranking-item${selClass}" data-country="${safeCountry}" role="button" tabindex="0" aria-pressed="${pressed}" aria-label="筛选 ${safeCountry}"><span>${idx + 1}. ${safeCountry}</span><span class="count">${count}</span></li>`;
+      const ariaFilter = formatTpl(t("rankingFilterAriaTpl"), { country });
+      return `<li class="country-ranking-item${selClass}" data-country="${safeCountry}" role="button" tabindex="0" aria-pressed="${pressed}" aria-label="${escapeHtml(ariaFilter)}"><span>${idx + 1}. ${safeCountry}</span><span class="count">${count}</span></li>`;
     })
     .join("");
 }
@@ -716,9 +845,23 @@ function ensureTooltip() {
   document.body.appendChild(tooltipEl);
 }
 
+function storyPrimaryLineForTooltip(story) {
+  if (currentLang === "zh") {
+    if (hasDisplayText(story.cn)) return story.cn;
+    if (hasDisplayText(story.en)) return story.en;
+    return "";
+  }
+  if (hasDisplayText(story.en)) return story.en;
+  if (hasDisplayText(story.cn)) return story.cn;
+  return "";
+}
+
 function showTooltip(story, event) {
   ensureTooltip();
-  tooltipEl.innerHTML = `${story.cn}<br/>${story.country} · ${story.category}`;
+  const primary = storyPrimaryLineForTooltip(story);
+  tooltipEl.innerHTML = `${escapeHtml(primary)}<br/>${escapeHtml(story.country)} · ${escapeHtml(
+    String(story.category || "")
+  )}`;
   tooltipEl.style.left = `${event.clientX + 12}px`;
   tooltipEl.style.top = `${event.clientY + 12}px`;
   tooltipEl.classList.add("show");
@@ -804,14 +947,14 @@ function rebuildFilterBar() {
   const allBtn = document.createElement("button");
   allBtn.type = "button";
   allBtn.dataset.filter = "All";
-  allBtn.textContent = "All";
+  allBtn.textContent = getFilterButtonLabel("All");
   if (prev === "All") allBtn.classList.add("active");
   filterBarEl.appendChild(allBtn);
   storyCategoryKeys.forEach((cat) => {
     const b = document.createElement("button");
     b.type = "button";
     b.dataset.filter = cat;
-    b.textContent = cat;
+    b.textContent = getFilterButtonLabel(cat);
     if (prev === cat) b.classList.add("active");
     filterBarEl.appendChild(b);
   });
@@ -848,10 +991,15 @@ function rebuildLegendDom() {
     textWrap.className = "legend-item__text";
     const enEl = document.createElement("span");
     enEl.className = "legend-item__en";
-    enEl.textContent = en;
     const zhEl = document.createElement("span");
     zhEl.className = "legend-item__zh";
-    zhEl.textContent = zh;
+    if (currentLang === "zh") {
+      enEl.textContent = zh;
+      zhEl.textContent = en;
+    } else {
+      enEl.textContent = en;
+      zhEl.textContent = zh;
+    }
     textWrap.appendChild(enEl);
     textWrap.appendChild(zhEl);
 
@@ -968,6 +1116,85 @@ function initGlobe() {
   });
 }
 
+function updateAboutModalI18n() {
+  const titleEl = document.getElementById("aboutModalTitle");
+  const leadEl = document.getElementById("aboutModalLead");
+  const s1t = document.getElementById("aboutSec1Title");
+  const s1x = document.getElementById("aboutSec1Text");
+  const s2t = document.getElementById("aboutSec2Title");
+  const s2l = document.getElementById("aboutSec2List");
+  const s3t = document.getElementById("aboutSec3Title");
+  const s3x = document.getElementById("aboutSec3Text");
+  if (titleEl) titleEl.textContent = t("aboutModalTitle");
+  if (leadEl) leadEl.textContent = t("aboutModalLead");
+  if (s1t) s1t.textContent = t("aboutSec1Title");
+  if (s1x) s1x.textContent = t("aboutSec1Text");
+  if (s2t) s2t.textContent = t("aboutSec2Title");
+  if (s3t) s3t.textContent = t("aboutSec3Title");
+  if (s3x) s3x.textContent = t("aboutSec3Text");
+  if (s2l) {
+    s2l.innerHTML = [t("aboutSec2Li1"), t("aboutSec2Li2"), t("aboutSec2Li3"), t("aboutSec2Li4")]
+      .map((line) => `<li>${escapeHtml(line)}</li>`)
+      .join("");
+  }
+}
+
+function updateLanguageUI() {
+  document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
+
+  const lt = document.getElementById("langToggle");
+  if (lt) {
+    lt.textContent = t("langToggleLabel");
+    lt.setAttribute("aria-label", currentLang === "zh" ? "Switch to English" : "Switch to Chinese");
+  }
+
+  const h1 = document.getElementById("appTitle");
+  if (h1) h1.textContent = t("appHeading");
+  document.title = t("docTitle");
+
+  if (searchInputEl) searchInputEl.placeholder = t("searchPlaceholder");
+
+  const sch = document.getElementById("storyCardHeading");
+  if (sch) sch.textContent = t("storyCardSectionTitle");
+
+  const rh = document.getElementById("countryRankingHeading");
+  if (rh) rh.textContent = t("countryRankingTitle");
+
+  const lhint = document.getElementById("categoryLegendHint");
+  if (lhint) lhint.textContent = t("legendHint");
+
+  const ab = document.getElementById("aboutBtn");
+  if (ab) ab.textContent = t("aboutButton");
+
+  const regionLab = document.getElementById("regionChipLabel");
+  if (regionLab) regionLab.textContent = t("regionChipPrefix");
+
+  const wrap = document.getElementById("categoryLegendWrap");
+  if (wrap) wrap.setAttribute("aria-label", t("legendWrapAria"));
+
+  updateAboutModalI18n();
+
+  const closeBtn = document.getElementById("aboutModalClose");
+  if (closeBtn) closeBtn.setAttribute("aria-label", t("modalClose"));
+
+  rebuildFilterBar();
+  rebuildLegendDom();
+  syncLegendActive();
+  updateHeader();
+  renderStoryCard();
+  renderCountryRanking();
+}
+
+function initLangToggle() {
+  const lt = document.getElementById("langToggle");
+  if (!lt || lt.dataset.langBound === "1") return;
+  lt.dataset.langBound = "1";
+  lt.addEventListener("click", () => {
+    currentLang = currentLang === "zh" ? "en" : "zh";
+    updateLanguageUI();
+  });
+}
+
 function initAboutModal() {
   const modal = document.getElementById("aboutModal");
   const btn = document.getElementById("aboutBtn");
@@ -1005,12 +1232,11 @@ function init() {
   initLegendNav();
   initFilters();
   initCountryRankingNav();
+  initLangToggle();
   initSearch();
   initAboutModal();
   refreshGlobePoints();
-  renderStoryCard();
-  renderCountryRanking();
-  updateHeader();
+  updateLanguageUI();
 }
 
 init();
