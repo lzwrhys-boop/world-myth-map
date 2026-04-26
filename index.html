@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>世界神话地图</title>
+    <link rel="preconnect" href="https://unpkg.com" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <div class="bg-layer"></div>
+    <div class="app">
+      <header class="topbar">
+        <div>
+          <h1>世界神话地图</h1>
+          <p id="storyMeta">20 stories · 12 countries</p>
+        </div>
+        <div class="region-chip">
+          当前地区：<span id="currentRegion">Global</span>
+        </div>
+      </header>
+
+      <main class="main-layout">
+        <section class="globe-column">
+          <section class="globe-panel">
+            <div id="globeViz"></div>
+          </section>
+          <footer class="filter-bar" id="filterBar">
+            <button data-filter="All" class="active">All</button>
+            <button data-filter="Sun">Sun</button>
+            <button data-filter="Flood">Flood</button>
+            <button data-filter="Fire">Fire</button>
+            <button data-filter="Dragon">Dragon</button>
+            <button data-filter="Love">Love</button>
+            <button data-filter="Moon">Moon</button>
+            <button data-filter="Princess">Princess</button>
+          </footer>
+        </section>
+
+        <aside class="side-panel">
+          <section class="card-block">
+            <h2>故事卡片</h2>
+            <div id="storyCard" class="story-card">
+              <p class="placeholder">点击地球上的点位，查看神话详情。</p>
+            </div>
+          </section>
+
+          <section class="rank-block">
+            <h2>国家排行榜</h2>
+            <ul id="countryRanking"></ul>
+          </section>
+        </aside>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/three"></script>
+    <script src="https://unpkg.com/globe.gl"></script>
+    <script src="./data.js"></script>
+    <script src="./script.js"></script>
+  </body>
+</html>
