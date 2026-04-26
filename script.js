@@ -79,7 +79,10 @@ const I18N = {
     filterStatusCountryTpl: "国家：{name}",
     filterStatusCategoryTpl: "分类：{name}",
     filterStatusSearchTpl: "搜索：{q}",
-    clearFilters: "清空筛选"
+    clearFilters: "清空筛选",
+    searchResultsAria: "搜索结果",
+    searchResultsEmpty: "没有找到相关故事，试试国家、分类或英文关键词。",
+    searchResultsMoreTpl: "还有 {x} 个结果，请继续缩小搜索范围"
   },
   en: {
     langToggleLabel: "CN / English",
@@ -135,7 +138,10 @@ const I18N = {
     filterStatusCountryTpl: "Country: {name}",
     filterStatusCategoryTpl: "Category: {name}",
     filterStatusSearchTpl: "Search: {q}",
-    clearFilters: "Clear filters"
+    clearFilters: "Clear filters",
+    searchResultsAria: "Search results",
+    searchResultsEmpty: "No stories found. Try a country, category, or English keyword.",
+    searchResultsMoreTpl: "{x} more results. Refine your search."
   }
 };
 
@@ -500,6 +506,7 @@ function applyCategoryFilter(filter) {
   updateHeader();
   syncLegendActive();
   updateFilterStatusBar();
+  renderSearchResults();
 }
 
 const countryAliasMap = {
@@ -828,6 +835,92 @@ function selectStoryAndRefresh(story) {
   renderStoryCard();
   updateHeader();
   refreshGlobePoints();
+  updateFilterStatusBar();
+}
+
+const MAX_SEARCH_RESULTS_PREVIEW = 8;
+
+function getCategoryDisplayForSearch(story) {
+  const raw = story.category;
+  if (!hasDisplayText(raw)) return "";
+  const key = normalizeCategoryKey(raw);
+  if (currentLang === "en") return key || String(raw).trim();
+  if (key && categories.includes(key)) return getFilterButtonLabel(key);
+  const { zh } = getLegendLabels(key || raw);
+  return zh || String(raw).trim();
+}
+
+function getSearchResultSummaryLine(story) {
+  const text = hasDisplayText(story.summary)
+    ? story.summary
+    : story.desc && hasDisplayText(story.desc)
+      ? story.desc
+      : "";
+  return String(text).replace(/\s+/g, " ").trim();
+}
+
+function renderSearchResults() {
+  const panel = document.getElementById("searchResultsPanel");
+  const inner = document.getElementById("searchResultsInner");
+  if (!panel || !inner) return;
+
+  panel.setAttribute("aria-label", t("searchResultsAria"));
+
+  const q = String(searchTerm || "").trim();
+  if (!q) {
+    inner.innerHTML = "";
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+  const filtered = getFilteredStories();
+
+  if (filtered.length === 0) {
+    inner.innerHTML = `<p class="search-results-empty">${escapeHtml(t("searchResultsEmpty"))}</p>`;
+    return;
+  }
+
+  const shown = filtered.slice(0, MAX_SEARCH_RESULTS_PREVIEW);
+  const more = filtered.length - shown.length;
+
+  const rows = shown
+    .map((st) => {
+      const title = escapeHtml(storyExploreTitle(st));
+      const cnAttr = escapeHtml(st.cn);
+      const country = escapeHtml(getCountryDisplayName(st.country));
+      const cat = escapeHtml(getCategoryDisplayForSearch(st));
+      const meta = cat ? `${country} · ${cat}` : country;
+      const sumRaw = getSearchResultSummaryLine(st);
+      const sum = sumRaw ? escapeHtml(sumRaw) : "";
+      const sumHtml = sum ? `<span class="search-result-item__sum">${sum}</span>` : "";
+      return `<button type="button" class="search-result-item" data-story-cn="${cnAttr}"><span class="search-result-item__title">${title}</span><span class="search-result-item__meta">${meta}</span>${sumHtml}</button>`;
+    })
+    .join("");
+
+  const moreHtml =
+    more > 0
+      ? `<p class="search-results-more">${escapeHtml(formatTpl(t("searchResultsMoreTpl"), { x: String(more) }))}</p>`
+      : "";
+
+  inner.innerHTML = rows + moreHtml;
+}
+
+function initSearchResultsNav() {
+  const panel = document.getElementById("searchResultsPanel");
+  if (!panel || panel.dataset.searchResultsNavBound === "1") return;
+  panel.dataset.searchResultsNavBound = "1";
+  panel.addEventListener("click", (event) => {
+    const btn = event.target.closest(".search-result-item[data-story-cn]");
+    if (!btn) return;
+    const cn = btn.getAttribute("data-story-cn");
+    if (!cn) return;
+    const found = stories.find((x) => x.cn === cn);
+    if (found) {
+      event.preventDefault();
+      selectStoryAndRefresh(found);
+    }
+  });
 }
 
 function buildSelectedStoryCardHtml(s) {
@@ -981,6 +1074,7 @@ function applyRankingCountryToggle(country) {
   renderCountryRanking();
   updateHeader();
   updateFilterStatusBar();
+  renderSearchResults();
 }
 
 function initStoryExploreNav() {
@@ -1289,6 +1383,7 @@ function initSearch() {
     renderCountryRanking();
     updateHeader();
     updateFilterStatusBar();
+    renderSearchResults();
   });
 }
 
@@ -1455,6 +1550,7 @@ function updateLanguageUI() {
   renderStoryCard();
   renderCountryRanking();
   updateFilterStatusBar();
+  renderSearchResults();
 }
 
 function initLangToggle() {
@@ -1506,6 +1602,7 @@ function init() {
   initCountryRankingNav();
   initStoryExploreNav();
   initLangToggle();
+  initSearchResultsNav();
   initSearch();
   initClearFilters();
   initAboutModal();
