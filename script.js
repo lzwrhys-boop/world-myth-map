@@ -447,10 +447,42 @@ function initGlobe() {
   });
 }
 
+function initAboutModal() {
+  const modal = document.getElementById("aboutModal");
+  const btn = document.getElementById("aboutBtn");
+  const closeBtn = document.getElementById("aboutModalClose");
+  const backdrop = document.getElementById("aboutModalBackdrop");
+  if (!modal || !btn) return;
+
+  function openModal() {
+    modal.classList.add("is-open");
+    modal.setAttribute("aria-hidden", "false");
+    document.body.style.overflow = "hidden";
+    closeBtn?.focus();
+  }
+
+  function closeModal() {
+    modal.classList.remove("is-open");
+    modal.setAttribute("aria-hidden", "true");
+    document.body.style.overflow = "";
+    btn.focus();
+  }
+
+  btn.addEventListener("click", openModal);
+  closeBtn?.addEventListener("click", closeModal);
+  backdrop?.addEventListener("click", closeModal);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("is-open")) {
+      closeModal();
+    }
+  });
+}
+
 function init() {
   initGlobe();
   initFilters();
   initSearch();
+  initAboutModal();
   refreshGlobePoints();
   renderStoryCard();
   renderCountryRanking();
