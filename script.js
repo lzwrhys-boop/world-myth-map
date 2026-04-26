@@ -2153,7 +2153,7 @@ function initGlobe() {
         if (lastPinchDistance < 10) {
           lastPinchDistance = d;
         } else if (d > 0) {
-          const scale = d / lastPinchDistance;
+          const scale = lastPinchDistance / d;
           applyRadialZoomScale(scale);
           lastPinchDistance = d;
         }
