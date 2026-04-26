@@ -42,6 +42,9 @@ let selectedStory = null;
 /** 深链 ?story= 对应 id 在数据中不存在时，故事卡片显示提示文案 */
 let storyIdNotFoundFromUrl = false;
 let urlStorySyncBound = false;
+/** 搜索：延迟重绘地球/排行榜，避免每键全量重绘点位 */
+let searchDrivenDebounceTimer = null;
+const SEARCH_INPUT_DEBOUNCE_MS = 160;
 let globe;
 let tooltipEl = null;
 
@@ -528,6 +531,7 @@ function updateFilterStatusBar() {
 
 function clearAllFilters() {
   if (!canClearAll()) return;
+  clearPendingSearchDrivenRefresh();
   storyIdNotFoundFromUrl = false;
   const hadFilter = hasActiveFiltersState();
   selectedStory = null;
@@ -564,6 +568,7 @@ function applyCategoryFilter(filter) {
   }
 
   storyIdNotFoundFromUrl = false;
+  clearPendingSearchDrivenRefresh();
 
   if (filter === "All") {
     rankingCountryFilter = null;
@@ -786,9 +791,16 @@ function buildSearchKeywords(rawTerm) {
   return [...terms];
 }
 
+let _fsCacheKey = "";
+let _fsCacheList = null;
+
 function getFilteredStories() {
+  const key = `${currentFilter}\0${String(searchTerm)}\0${String(rankingCountryFilter || "")}`;
+  if (key === _fsCacheKey && _fsCacheList) {
+    return _fsCacheList;
+  }
   const terms = buildSearchKeywords(searchTerm);
-  return stories.filter((item) => {
+  const out = stories.filter((item) => {
     const itemCat = normalizeCategoryKey(item.category);
     const passCategory = currentFilter === "All" || itemCat === currentFilter;
     if (!passCategory) return false;
@@ -814,6 +826,30 @@ function getFilteredStories() {
 
     return terms.some((term) => haystack.includes(term) || haystackCompact.includes(term));
   });
+  _fsCacheKey = key;
+  _fsCacheList = out;
+  return out;
+}
+
+function clearPendingSearchDrivenRefresh() {
+  if (searchDrivenDebounceTimer) {
+    clearTimeout(searchDrivenDebounceTimer);
+    searchDrivenDebounceTimer = null;
+  }
+}
+
+function applySearchDrivenStateRefresh() {
+  const filtered = getFilteredStories();
+  if (selectedStory && !filtered.includes(selectedStory)) {
+    selectedStory = null;
+  }
+  refreshGlobePoints();
+  renderStoryCard();
+  renderCountryRanking();
+  updateHeader();
+  updateFilterStatusBar();
+  updateOnboardingHud();
+  syncUrlWithSelectedStory();
 }
 
 function canClearAll() {
@@ -967,17 +1003,6 @@ function initUrlStorySync() {
   });
 }
 
-function initStoryCardCopyLink() {
-  if (!storyCardEl || storyCardEl.dataset.copyLinkBound === "1") return;
-  storyCardEl.dataset.copyLinkBound = "1";
-  storyCardEl.addEventListener("click", (event) => {
-    const btn = event.target.closest(".story-card__copy-link[data-story-copy]");
-    if (!btn) return;
-    event.preventDefault();
-    copyCurrentStoryLink(btn);
-  });
-}
-
 function updateHeader() {
   const countries = new Set(stories.map((item) => item.country));
   const n = stories.length;
@@ -1125,6 +1150,7 @@ function buildExploreRecommendationsHtml(current) {
 }
 
 function selectStoryAndRefresh(story) {
+  clearPendingSearchDrivenRefresh();
   storyIdNotFoundFromUrl = false;
   selectedStory = story;
   renderStoryCard();
@@ -1226,9 +1252,13 @@ function getStoryDetailRecord(story) {
   return rec && typeof rec === "object" ? rec : null;
 }
 
-function buildStoryCardDetailsBlock(s) {
-  const d = getStoryDetailRecord(s);
-  if (!d) return "";
+function detailRecordHasAnyBody(d) {
+  if (!d) return false;
+  return ["detailZh", "detailEn", "meaningZh", "meaningEn"].some((k) => hasDisplayText(d[k]));
+}
+
+function getDetailAndMeaningStringsForLang(d) {
+  if (!d) return { detailBody: "", meaningBody: "" };
   const pickZhFirst = (zhKey, enKey) => {
     if (currentLang === "zh") {
       if (hasDisplayText(d[zhKey])) return d[zhKey];
@@ -1239,28 +1269,55 @@ function buildStoryCardDetailsBlock(s) {
     if (hasDisplayText(d[zhKey])) return d[zhKey];
     return "";
   };
-  const detailBody = pickZhFirst("detailZh", "detailEn");
-  const meaningBody = pickZhFirst("meaningZh", "meaningEn");
-  if (!detailBody && !meaningBody) return "";
+  return {
+    detailBody: pickZhFirst("detailZh", "detailEn"),
+    meaningBody: pickZhFirst("meaningZh", "meaningEn")
+  };
+}
+
+function buildStoryCardDetailsBlock(s) {
+  const d = getStoryDetailRecord(s);
+  if (!d || !detailRecordHasAnyBody(d)) return "";
 
   const sid = escapeHtml(String(s.id));
-  let html = `<div class="story-card__details-wrap" data-story-id="${sid}">`;
-  html += `<button type="button" class="story-card__details-toggle" aria-expanded="false">${escapeHtml(
+  return `<div class="story-card__details-wrap" data-story-id="${sid}" data-details-lazy="1"><button type="button" class="story-card__details-toggle" aria-expanded="false">${escapeHtml(
     t("storyExpandMore")
-  )}</button>`;
-  html += `<div class="story-card__details-panel" hidden>`;
+  )}</button><div class="story-card__details-panel" hidden></div></div>`;
+}
+
+function injectStoryDetailsContentFromRecord(wrap) {
+  if (!wrap || wrap.getAttribute("data-details-lazy") !== "1") return;
+  const rawId = wrap.getAttribute("data-story-id");
+  if (!rawId) return;
+  const st = findStoryByIdParam(rawId) || stories.find((x) => String(x.id) === rawId);
+  if (!st) {
+    wrap.removeAttribute("data-details-lazy");
+    return;
+  }
+  const d = getStoryDetailRecord(st);
+  if (!d) {
+    wrap.removeAttribute("data-details-lazy");
+    return;
+  }
+  const { detailBody, meaningBody } = getDetailAndMeaningStringsForLang(d);
+  const panel = wrap.querySelector(".story-card__details-panel");
+  if (!panel) {
+    wrap.removeAttribute("data-details-lazy");
+    return;
+  }
+  let block = "";
   if (detailBody) {
-    html += `<h4 class="story-card__details-h">${escapeHtml(t("storyDetailTitle"))}</h4><p class="story-card__details-p">${escapeHtml(
+    block += `<h4 class="story-card__details-h">${escapeHtml(t("storyDetailTitle"))}</h4><p class="story-card__details-p">${escapeHtml(
       detailBody
     )}</p>`;
   }
   if (meaningBody) {
-    html += `<h4 class="story-card__details-h">${escapeHtml(t("storyMeaningTitle"))}</h4><p class="story-card__details-p">${escapeHtml(
+    block += `<h4 class="story-card__details-h">${escapeHtml(t("storyMeaningTitle"))}</h4><p class="story-card__details-p">${escapeHtml(
       meaningBody
     )}</p>`;
   }
-  html += `</div></div>`;
-  return html;
+  panel.innerHTML = block;
+  wrap.removeAttribute("data-details-lazy");
 }
 
 function buildSelectedStoryCardHtml(s) {
@@ -1411,6 +1468,7 @@ function renderCountryRanking() {
 
 function applyRankingCountryToggle(country) {
   if (!country || !countryRankingEl) return;
+  clearPendingSearchDrivenRefresh();
   storyIdNotFoundFromUrl = false;
   if (rankingCountryFilter === country) {
     rankingCountryFilter = null;
@@ -1435,37 +1493,41 @@ function applyRankingCountryToggle(country) {
   syncUrlWithSelectedStory();
 }
 
-function initStoryCardDetailsToggle() {
-  if (!storyCardEl || storyCardEl.dataset.detailsToggleBound === "1") return;
-  storyCardEl.dataset.detailsToggleBound = "1";
+function initStoryCardInteractions() {
+  if (!storyCardEl || storyCardEl.dataset.storyCardActionsBound === "1") return;
+  storyCardEl.dataset.storyCardActionsBound = "1";
   storyCardEl.addEventListener("click", (event) => {
-    const btn = event.target.closest(".story-card__details-toggle");
-    if (!btn) return;
-    const wrap = btn.closest(".story-card__details-wrap");
-    const panel = wrap?.querySelector(".story-card__details-panel");
-    if (!panel) return;
-    event.preventDefault();
-    const expanded = btn.getAttribute("aria-expanded") === "true";
-    const next = !expanded;
-    btn.setAttribute("aria-expanded", next ? "true" : "false");
-    panel.hidden = !next;
-    btn.textContent = t(next ? "storyShowLess" : "storyExpandMore");
-  });
-}
-
-function initStoryExploreNav() {
-  if (!storyCardEl || storyCardEl.dataset.exploreNavBound === "1") return;
-  storyCardEl.dataset.exploreNavBound = "1";
-  storyCardEl.addEventListener("click", (event) => {
-    const btn = event.target.closest(".explore-rec__item[data-story-cn]");
-    if (!btn) return;
-    const cn = btn.getAttribute("data-story-cn");
-    if (!cn) return;
-    const found = stories.find((x) => x.cn === cn);
-    if (found) {
+    const copyBtn = event.target.closest(".story-card__copy-link[data-story-copy]");
+    if (copyBtn) {
       event.preventDefault();
-      selectStoryAndRefresh(found);
+      copyCurrentStoryLink(copyBtn);
+      return;
     }
+    const exploreBtn = event.target.closest(".explore-rec__item[data-story-cn]");
+    if (exploreBtn) {
+      const cn = exploreBtn.getAttribute("data-story-cn");
+      if (!cn) return;
+      const found = stories.find((x) => x.cn === cn);
+      if (found) {
+        event.preventDefault();
+        selectStoryAndRefresh(found);
+      }
+      return;
+    }
+    const detailBtn = event.target.closest(".story-card__details-toggle");
+    if (!detailBtn) return;
+    const wrap = detailBtn.closest(".story-card__details-wrap");
+    const panel = wrap?.querySelector(".story-card__details-panel");
+    if (!wrap || !panel) return;
+    event.preventDefault();
+    const expanded = detailBtn.getAttribute("aria-expanded") === "true";
+    const next = !expanded;
+    if (next) {
+      injectStoryDetailsContentFromRecord(wrap);
+    }
+    detailBtn.setAttribute("aria-expanded", next ? "true" : "false");
+    panel.hidden = !next;
+    detailBtn.textContent = t(next ? "storyShowLess" : "storyExpandMore");
   });
 }
 
@@ -1751,18 +1813,12 @@ function initSearch() {
     if (!String(searchTerm).trim()) {
       rankingCountryFilter = null;
     }
-    const filtered = getFilteredStories();
-    if (selectedStory && !filtered.includes(selectedStory)) {
-      selectedStory = null;
-    }
-    refreshGlobePoints();
-    renderStoryCard();
-    renderCountryRanking();
-    updateHeader();
-    updateFilterStatusBar();
     renderSearchResults();
-    updateOnboardingHud();
-    syncUrlWithSelectedStory();
+    clearPendingSearchDrivenRefresh();
+    searchDrivenDebounceTimer = setTimeout(() => {
+      searchDrivenDebounceTimer = null;
+      applySearchDrivenStateRefresh();
+    }, SEARCH_INPUT_DEBOUNCE_MS);
   });
 }
 
@@ -1831,15 +1887,25 @@ function initGlobe() {
     }, WHEEL_IDLE_MS);
   }
 
-  function resizeGlobe() {
+  function measureGlobeSize() {
     const width = globeContainer.clientWidth;
     const height = globeContainer.clientHeight;
     if (!width || !height) return;
     globe.width(width).height(height);
   }
 
-  resizeGlobe();
-  window.addEventListener("resize", resizeGlobe);
+  let resizeDebounceTimer = null;
+  const GLOBE_RESIZE_DEBOUNCE_MS = 120;
+  function onWindowResize() {
+    if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
+    resizeDebounceTimer = setTimeout(() => {
+      resizeDebounceTimer = null;
+      measureGlobeSize();
+    }, GLOBE_RESIZE_DEBOUNCE_MS);
+  }
+
+  measureGlobeSize();
+  window.addEventListener("resize", onWindowResize);
   interactionContainer.addEventListener("mouseenter", () => {
     isPointerInside = true;
     syncAutoRotate();
@@ -1885,6 +1951,7 @@ function updateAboutModalI18n() {
 }
 
 function updateLanguageUI() {
+  clearPendingSearchDrivenRefresh();
   document.documentElement.lang = currentLang === "zh" ? "zh-CN" : "en";
 
   const lt = document.getElementById("langToggle");
@@ -1981,8 +2048,7 @@ function init() {
   initLegendNav();
   initFilters();
   initCountryRankingNav();
-  initStoryExploreNav();
-  initStoryCardDetailsToggle();
+  initStoryCardInteractions();
   initLangToggle();
   initSearchResultsNav();
   initSearch();
@@ -1990,7 +2056,6 @@ function init() {
   initAboutModal();
   initOnboarding();
   initUrlStorySync();
-  initStoryCardCopyLink();
   refreshGlobePoints();
   updateLanguageUI();
   openStoryFromUrl();
