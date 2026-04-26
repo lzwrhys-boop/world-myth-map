@@ -920,7 +920,7 @@ h2 {
   padding-right: 4px;
 }
 
-#countryRanking li {
+#countryRanking li.country-ranking-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -930,6 +930,37 @@ h2 {
   background: rgba(3, 4, 9, 0.72);
   font-size: 14px;
   color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    color 0.18s ease;
+}
+
+#countryRanking li.country-ranking-item:hover {
+  border-color: rgba(130, 150, 185, 0.32);
+  background: rgba(8, 10, 18, 0.88);
+  color: var(--silver);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) inset, 0 0 18px rgba(70, 95, 130, 0.08);
+}
+
+#countryRanking li.country-ranking-item.is-country-selected {
+  border-color: rgba(160, 175, 205, 0.45);
+  background: linear-gradient(135deg, rgba(14, 18, 28, 0.95), rgba(8, 10, 18, 0.92));
+  color: #eef1f6;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.05) inset,
+    0 0 22px rgba(90, 115, 155, 0.14),
+    0 0 18px var(--accent-amber-soft);
+}
+
+#countryRanking li.country-ranking-item:focus-visible {
+  outline: none;
+  border-color: rgba(130, 165, 210, 0.55);
+  box-shadow:
+    0 0 0 2px rgba(60, 90, 140, 0.25),
+    0 0 20px rgba(80, 110, 160, 0.12);
 }
 
 #countryRanking .count {

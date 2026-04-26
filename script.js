@@ -6,6 +6,8 @@ let categories = ["All"];
 let storyCategoryKeys = [];
 let currentFilter = "All";
 let searchTerm = "";
+/** 国家排行榜点选：与 `item.country` 精确匹配；与分类、搜索关键词叠加 */
+let rankingCountryFilter = null;
 let selectedStory = null;
 let globe;
 let tooltipEl = null;
@@ -278,6 +280,12 @@ function applyCategoryFilter(filter) {
     return;
   }
 
+  if (filter === "All") {
+    rankingCountryFilter = null;
+    searchTerm = "";
+    if (searchInputEl) searchInputEl.value = "";
+  }
+
   const filtered = getFilteredStories();
   if (selectedStory && !filtered.includes(selectedStory)) {
     selectedStory = null;
@@ -486,6 +494,7 @@ function getFilteredStories() {
     const itemCat = normalizeCategoryKey(item.category);
     const passCategory = currentFilter === "All" || itemCat === currentFilter;
     if (!passCategory) return false;
+    if (rankingCountryFilter && item.country !== rankingCountryFilter) return false;
     if (!terms.length) return true;
 
     const aliases = countryDisplayAliasMap[item.country] || [];
@@ -512,7 +521,13 @@ function getFilteredStories() {
 function updateHeader() {
   const countries = new Set(stories.map((item) => item.country));
   storyMetaEl.textContent = `${stories.length} stories · ${countries.size} countries`;
-  currentRegionEl.textContent = selectedStory ? selectedStory.country : "Global";
+  if (selectedStory) {
+    currentRegionEl.textContent = selectedStory.country;
+  } else if (rankingCountryFilter) {
+    currentRegionEl.textContent = rankingCountryFilter;
+  } else {
+    currentRegionEl.textContent = "Global";
+  }
 }
 
 function escapeHtml(value) {
@@ -602,12 +617,9 @@ function buildSelectedStoryCardHtml(s) {
 function renderStoryCard() {
   const filtered = getFilteredStories();
   if (filtered.length === 0) {
-    if (String(searchTerm || "").trim()) {
+    if (rankingCountryFilter || currentFilter !== "All") {
       storyCardEl.innerHTML =
-        '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
-    } else if (currentFilter !== "All") {
-      storyCardEl.innerHTML =
-        '<p class="placeholder">当前分类暂无故事，请尝试选择其他分类。</p>';
+        '<p class="placeholder">当前筛选条件下暂无故事，请尝试切换分类或清空搜索。</p>';
     } else {
       storyCardEl.innerHTML =
         '<p class="placeholder">没有找到相关故事，请尝试搜索国家、故事名或分类。</p>';
@@ -616,8 +628,14 @@ function renderStoryCard() {
   }
 
   if (!selectedStory) {
-    storyCardEl.innerHTML =
-      '<p class="placeholder">点击地球上的发光点位，打开一段来自世界文明的古老故事。</p>';
+    if (rankingCountryFilter) {
+      storyCardEl.innerHTML = `<p class="placeholder">已筛选 ${escapeHtml(
+        rankingCountryFilter
+      )}，点击地球点位查看故事。</p>`;
+    } else {
+      storyCardEl.innerHTML =
+        '<p class="placeholder">点击地球上的发光点位，打开一段来自世界文明的古老故事。</p>';
+    }
     return;
   }
 
@@ -640,8 +658,55 @@ function renderCountryRanking() {
 
   const ranking = Object.entries(map).sort((a, b) => b[1] - a[1]);
   countryRankingEl.innerHTML = ranking
-    .map(([country, count], idx) => `<li><span>${idx + 1}. ${country}</span><span class="count">${count}</span></li>`)
+    .map(([country, count], idx) => {
+      const safeCountry = escapeHtml(country);
+      const selected = rankingCountryFilter === country;
+      const selClass = selected ? " is-country-selected" : "";
+      const pressed = selected ? "true" : "false";
+      return `<li class="country-ranking-item${selClass}" data-country="${safeCountry}" role="button" tabindex="0" aria-pressed="${pressed}" aria-label="筛选 ${safeCountry}"><span>${idx + 1}. ${safeCountry}</span><span class="count">${count}</span></li>`;
+    })
     .join("");
+}
+
+function applyRankingCountryToggle(country) {
+  if (!country || !countryRankingEl) return;
+  if (rankingCountryFilter === country) {
+    rankingCountryFilter = null;
+    searchTerm = "";
+    if (searchInputEl) searchInputEl.value = "";
+  } else {
+    rankingCountryFilter = country;
+    searchTerm = country;
+    if (searchInputEl) searchInputEl.value = country;
+  }
+  const filtered = getFilteredStories();
+  if (selectedStory && !filtered.includes(selectedStory)) {
+    selectedStory = null;
+  }
+  refreshGlobePoints();
+  renderStoryCard();
+  renderCountryRanking();
+  updateHeader();
+}
+
+function initCountryRankingNav() {
+  if (!countryRankingEl || countryRankingEl.dataset.rankingNavBound === "1") return;
+  countryRankingEl.dataset.rankingNavBound = "1";
+  countryRankingEl.addEventListener("click", (event) => {
+    const li = event.target.closest(".country-ranking-item[data-country]");
+    if (!li) return;
+    const country = li.getAttribute("data-country");
+    if (!country) return;
+    applyRankingCountryToggle(country);
+  });
+  countryRankingEl.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    const li = event.target.closest(".country-ranking-item[data-country]");
+    if (!li) return;
+    if (event.key === " ") event.preventDefault();
+    const country = li.getAttribute("data-country");
+    if (country) applyRankingCountryToggle(country);
+  });
 }
 
 function ensureTooltip() {
@@ -838,6 +903,9 @@ function initSearch() {
   if (!searchInputEl) return;
   searchInputEl.addEventListener("input", (event) => {
     searchTerm = event.target.value || "";
+    if (!String(searchTerm).trim()) {
+      rankingCountryFilter = null;
+    }
     const filtered = getFilteredStories();
     if (selectedStory && !filtered.includes(selectedStory)) {
       selectedStory = null;
@@ -936,6 +1004,7 @@ function init() {
   refreshCategoryLists();
   initLegendNav();
   initFilters();
+  initCountryRankingNav();
   initSearch();
   initAboutModal();
   refreshGlobePoints();
