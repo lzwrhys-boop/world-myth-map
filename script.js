@@ -73,7 +73,13 @@ const I18N = {
     confLow: "存在争议",
     exploreTitle: "继续探索",
     exploreSameCountry: "同国家故事",
-    exploreSameCategory: "同分类故事"
+    exploreSameCategory: "同分类故事",
+    filterStatusBarAria: "当前筛选状态",
+    filterStatusAll: "当前显示：全部故事",
+    filterStatusCountryTpl: "国家：{name}",
+    filterStatusCategoryTpl: "分类：{name}",
+    filterStatusSearchTpl: "搜索：{q}",
+    clearFilters: "清空筛选"
   },
   en: {
     langToggleLabel: "CN / English",
@@ -123,7 +129,13 @@ const I18N = {
     confLow: "Disputed",
     exploreTitle: "Continue Exploring",
     exploreSameCountry: "Same Country",
-    exploreSameCategory: "Same Category"
+    exploreSameCategory: "Same Category",
+    filterStatusBarAria: "Active filters",
+    filterStatusAll: "Showing: All stories",
+    filterStatusCountryTpl: "Country: {name}",
+    filterStatusCategoryTpl: "Category: {name}",
+    filterStatusSearchTpl: "Search: {q}",
+    clearFilters: "Clear filters"
   }
 };
 
@@ -388,6 +400,71 @@ function syncLegendActive() {
   });
 }
 
+function hasActiveFiltersState() {
+  const q = String(searchTerm || "").trim();
+  return !!(rankingCountryFilter || currentFilter !== "All" || q);
+}
+
+function updateFilterStatusBar() {
+  const bar = document.getElementById("filterStatusBar");
+  const chipsEl = document.getElementById("filterStatusChips");
+  const clearBtn = document.getElementById("clearFiltersBtn");
+  if (bar) bar.setAttribute("aria-label", t("filterStatusBarAria"));
+  if (!chipsEl) return;
+
+  chipsEl.innerHTML = "";
+  const active = hasActiveFiltersState();
+
+  if (!active) {
+    const p = document.createElement("p");
+    p.className = "filter-status-all";
+    p.textContent = t("filterStatusAll");
+    chipsEl.appendChild(p);
+  } else {
+    if (rankingCountryFilter) {
+      const span = document.createElement("span");
+      span.className = "filter-status-chip";
+      span.textContent = formatTpl(t("filterStatusCountryTpl"), {
+        name: getCountryDisplayName(rankingCountryFilter)
+      });
+      chipsEl.appendChild(span);
+    }
+    if (currentFilter !== "All") {
+      const span = document.createElement("span");
+      span.className = "filter-status-chip";
+      span.textContent = formatTpl(t("filterStatusCategoryTpl"), {
+        name: getFilterButtonLabel(currentFilter)
+      });
+      chipsEl.appendChild(span);
+    }
+    const q = String(searchTerm || "").trim();
+    if (q) {
+      const span = document.createElement("span");
+      span.className = "filter-status-chip";
+      span.textContent = formatTpl(t("filterStatusSearchTpl"), { q });
+      chipsEl.appendChild(span);
+    }
+  }
+
+  if (clearBtn) {
+    clearBtn.textContent = t("clearFilters");
+    clearBtn.disabled = !active;
+  }
+}
+
+function clearAllFilters() {
+  if (!hasActiveFiltersState()) return;
+  selectedStory = null;
+  applyCategoryFilter("All");
+}
+
+function initClearFilters() {
+  const btn = document.getElementById("clearFiltersBtn");
+  if (!btn || btn.dataset.clearBound === "1") return;
+  btn.dataset.clearBound = "1";
+  btn.addEventListener("click", () => clearAllFilters());
+}
+
 /**
  * 与底部分类按钮、图例共用 currentFilter；仅接受 categories 中的值（由数据推导）。
  */
@@ -422,6 +499,7 @@ function applyCategoryFilter(filter) {
   renderCountryRanking();
   updateHeader();
   syncLegendActive();
+  updateFilterStatusBar();
 }
 
 const countryAliasMap = {
@@ -582,6 +660,15 @@ const countryDisplayAliasMap = {
   Wales: ["威尔士", "英国"],
   "Faroe Islands": ["法罗群岛"]
 };
+
+/** 状态栏等 UI：中文下优先用常见中文国名，否则用数据里的英文 country */
+function getCountryDisplayName(country) {
+  if (!country) return "";
+  if (currentLang === "en") return String(country);
+  const list = countryDisplayAliasMap[country];
+  if (list && list.length) return list[0];
+  return String(country);
+}
 
 function normalizeText(value) {
   return String(value || "")
@@ -893,6 +980,7 @@ function applyRankingCountryToggle(country) {
   renderStoryCard();
   renderCountryRanking();
   updateHeader();
+  updateFilterStatusBar();
 }
 
 function initStoryExploreNav() {
@@ -971,15 +1059,63 @@ function hideTooltip() {
   tooltipEl.classList.remove("show");
 }
 
+/**
+ * 当前筛选结果里，同一 country + 相同 lat/lng 的故事在地球上会完全重叠。
+ * 为每条 story 计算仅用于渲染的经纬度（微小环形散开），不修改数据里的 lat/lng。
+ */
+function buildMarkerDisplayPositions(filteredStories) {
+  const posByStory = new Map();
+  if (!filteredStories || !filteredStories.length) return posByStory;
+
+  const groups = new Map();
+  for (const story of filteredStories) {
+    const la = Number(story.lat);
+    const lo = Number(story.lng);
+    const key = `${story.country}|${la}|${lo}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(story);
+  }
+
+  for (const members of groups.values()) {
+    members.sort((a, b) => String(a.cn).localeCompare(String(b.cn)));
+    if (members.length === 1) {
+      const s = members[0];
+      posByStory.set(s, { lat: Number(s.lat), lng: Number(s.lng) });
+      continue;
+    }
+    const lat0 = Number(members[0].lat);
+    const lng0 = Number(members[0].lng);
+    const n = members.length;
+    const cosLat = Math.max(0.2, Math.cos((lat0 * Math.PI) / 180));
+    const Rlat = Math.min(0.1, 0.026 + 0.012 * (n - 1));
+
+    members.forEach((st, i) => {
+      const ang = (2 * Math.PI * i) / n;
+      let plat = lat0 + Rlat * Math.cos(ang);
+      let plng = lng0 + (Rlat * Math.sin(ang)) / cosLat;
+      plat = Math.min(89.9, Math.max(-89.9, plat));
+      if (plng > 180) plng -= 360;
+      if (plng < -180) plng += 360;
+      posByStory.set(st, { lat: plat, lng: plng });
+    });
+  }
+  return posByStory;
+}
+
 function refreshGlobePoints() {
   const data = getFilteredStories();
+  const displayPos = buildMarkerDisplayPositions(data);
+  const ringPayload =
+    selectedStory && data.includes(selectedStory) && displayPos.has(selectedStory)
+      ? [{ ...selectedStory, lat: displayPos.get(selectedStory).lat, lng: displayPos.get(selectedStory).lng }]
+      : [];
 
   globe
     .pointsData([])
     .labelsData([])
     .htmlElementsData(data)
-    .htmlLat((d) => d.lat)
-    .htmlLng((d) => d.lng)
+    .htmlLat((d) => (displayPos.has(d) ? displayPos.get(d).lat : d.lat))
+    .htmlLng((d) => (displayPos.has(d) ? displayPos.get(d).lng : d.lng))
     .htmlAltitude(() => 0.01)
     .htmlElement((d) => {
       const look = getCategoryMarkerLook(d.category);
@@ -1021,7 +1157,7 @@ function refreshGlobePoints() {
       });
       return marker;
     })
-    .ringsData([...(selectedStory ? [selectedStory] : [])])
+    .ringsData(ringPayload)
     .ringLat((d) => d.lat)
     .ringLng((d) => d.lng)
     .ringColor(() => getSelectedRingColor())
@@ -1152,6 +1288,7 @@ function initSearch() {
     renderStoryCard();
     renderCountryRanking();
     updateHeader();
+    updateFilterStatusBar();
   });
 }
 
@@ -1317,6 +1454,7 @@ function updateLanguageUI() {
   updateHeader();
   renderStoryCard();
   renderCountryRanking();
+  updateFilterStatusBar();
 }
 
 function initLangToggle() {
@@ -1369,6 +1507,7 @@ function init() {
   initStoryExploreNav();
   initLangToggle();
   initSearch();
+  initClearFilters();
   initAboutModal();
   refreshGlobePoints();
   updateLanguageUI();
