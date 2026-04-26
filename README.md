@@ -1,61 +1,102 @@
-# 世界神话地图
+# World Myth Map｜世界神话地图
 
-## 项目简介
-
-`世界神话地图` 是一个基于纯前端技术（HTML + CSS + JavaScript）的互动可视化项目。  
-当前版本已进入相对稳定阶段：页面可正常打开，3D 地球可显示，点位交互可用，右侧信息面板联动正常。
+一个将世界各地神话、童话、民间传说与史诗故事映射到 3D 地球上的互动知识地图。  
+An interactive 3D mythology atlas mapping myths, fairy tales, folk tales, and epics across world civilizations.
 
 ---
 
-## 当前文件结构
+## 在线体验 · Live Demo
 
-项目核心文件如下：
-
-- `index.html`：页面结构与脚本引入
-- `style.css`：页面视觉样式与布局
-- `script.js`：交互逻辑（地球、点位、筛选、搜索、排行榜联动）
-- `data.js`：故事数据库（`window.STORIES`）
-- `assets/social-preview.svg`：Open Graph / Twitter 分享封面（1200×630）
-- `README.md`：项目说明文档（本文件）
-
-**社交分享图说明：** 当前 `og:image` / `twitter:image` 指向仓库内 `assets/social-preview.svg`。部分平台对 **SVG 作为分享图** 的支持不一；若发现预览失败或效果异常，可导出 **1200×630 的 PNG** 为 `assets/social-preview.png`，并在 `index.html` 中将对应 meta 的 URL 改为该 PNG 的绝对地址。
+**[https://lzwrhys-boop.github.io/world-myth-map/](https://lzwrhys-boop.github.io/world-myth-map/)**
 
 ---
 
-## 当前已实现功能
+## 预览 · Preview
 
-- 3D 地球展示（Globe.gl）
-- 神话点位渲染与交互
-- 鼠标移入地球区域暂停自转，移出恢复自转
-- 点位 hover 提示（tooltip）
-- 点击点位后右侧显示故事卡片
-- 搜索功能（按故事/国家/分类匹配）
-- 分类筛选功能（底部分类按钮）
-- 国家排行榜（随当前结果动态更新）
+![World Myth Map Preview](assets/social-preview.svg)
 
 ---
 
-## 当前布局规则（重要）
+## 核心亮点 · Highlights
 
-- 不要随意修改地球容器布局（避免影响地球显示、点击、暂停自转）
-- 不要随意修改右侧栏布局（避免遮挡地球或导致高度错位）
-- 数据应主要维护在 `data.js`（统一从 `window.STORIES` 读取）
+- **3D 地球神话地图**：Globe.gl 驱动的可探索球面，点位与叙事联动  
+- **249** 条世界神话 / 童话 / 民间故事 / 史诗档案  
+- **75** 个国家与地区维度呈现  
+- **100%** 故事详情补全（侧栏长文与含义字段）  
+- **分类图标点位**：图例与底栏分类一致，视觉可读  
+- **国家排行榜**：可点击按国家叠加筛选  
+- **搜索结果面板**：关键词检索与结果列表  
+- **中英文切换**：界面与故事字段双语展示  
+- **故事详情展开**：长文阅读与收起  
+- **继续探索**：同国 / 同类推荐入口  
+- **随机故事**：在筛选条件下快速跳转  
+- **可复制故事分享链接**：深链打开指定条目  
+- **数据说明与可信度**：独立说明弹窗，标注参考性质  
+- **移动端适配**：窄屏布局与触控友好  
 
 ---
 
-## 后续开发计划
+## 技术栈 · Stack
 
-- 扩充故事数据库（覆盖更多国家/文明）
-- 优化国家排行榜（排序、筛选、可读性）
-- 增加中英文切换（UI 文案与故事字段联动）
-- 部署上线（静态托管/域名访问）
+- HTML  
+- CSS  
+- JavaScript  
+- [Globe.gl](https://github.com/vasturiano/globe.gl)  
+- [Three.js](https://threejs.org/)  
+- GitHub Pages  
 
 ---
 
-## 注意事项（维护建议）
+## 项目结构 · Structure
 
-- 后续修改数据时，尽量只修改 `data.js`
-- 后续修改交互逻辑时，尽量只修改 `script.js`
-- 后续修改视觉样式时，尽量只修改 `style.css`
+```
+world-myth-map/
+├── index.html
+├── style.css
+├── script.js
+├── data.js
+├── details.js
+├── assets/
+│   └── social-preview.svg
+├── README.md
+├── PROJECT_HANDOFF.md
+└── .nojekyll
+```
 
-这样可以降低耦合，减少回归风险，提高后续迭代效率。
+---
+
+## 数据说明 · Data
+
+本项目中的故事点位基于文化起源地、代表性地区或常见版本进行标注。部分故事存在多个版本、跨文化传播或地点争议；地图面向**文化探索与知识可视化**，不作为严格学术考证结论。
+
+---
+
+## 当前版本 · Status
+
+**Current Version: V2.5**
+
+已完成：
+
+- 基础地图与交互  
+- 黑色宇宙视觉系统  
+- 故事详情系统（`data.js` + `details.js` 分层）  
+- 搜索、筛选、排行榜与图例联动  
+- 分享链接与 SEO / 社交预览元信息  
+- GitHub Pages 上线  
+
+---
+
+## 后续计划 · Roadmap
+
+- PNG 社交分享图（部分平台对 SVG 预览支持有限）  
+- 更细的数据来源与参考文献标注  
+- 故事收藏 / 书签  
+- 时间线或时代维度筛选  
+- 更完整的移动端与无障碍体验  
+- 性能优化与代码模块化  
+
+---
+
+## 作者 · Author
+
+**Rhys** / [@lzwrhys-boop](https://github.com/lzwrhys-boop)
