@@ -1308,6 +1308,73 @@ h1 {
   filter: drop-shadow(0 0 3px rgba(200, 90, 120, 0.32));
 }
 
+/* V2.6 — 移动端：轻量 HTML marker；拖动时降光晕/停脉动（由 body.is-mobile / globe-dragging 驱动） */
+body.is-mobile .glow-point {
+  width: 20px;
+  height: 20px;
+  transition: none;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 30%, rgba(0, 0, 0, 0.9)),
+    0 0 0 1px color-mix(in srgb, var(--glow-color, var(--marker-color)) 8%, transparent) inset,
+    0 2px 8px color-mix(in srgb, var(--glow-color, var(--marker-color)) 18%, transparent);
+}
+
+body.is-mobile .glow-point__halo {
+  inset: -3px;
+  opacity: 0.45;
+  filter: none;
+}
+
+body.is-mobile .glow-point__icon {
+  width: 12px;
+  height: 12px;
+  filter: none !important;
+}
+
+body.is-mobile .glow-point.is-selected {
+  transform: scale(1.06);
+  filter: none;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--glow-color, var(--marker-color)) 45%, rgba(255, 255, 255, 0.12)),
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 18%, transparent) inset,
+    0 3px 12px color-mix(in srgb, var(--glow-color, var(--marker-color)) 22%, transparent);
+}
+
+body.is-mobile .glow-point:hover {
+  transform: none;
+  filter: none;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 30%, rgba(0, 0, 0, 0.9)),
+    0 0 0 1px color-mix(in srgb, var(--glow-color, var(--marker-color)) 8%, transparent) inset,
+    0 2px 8px color-mix(in srgb, var(--glow-color, var(--marker-color)) 18%, transparent);
+}
+
+body.is-mobile .glow-point.is-selected:hover {
+  transform: scale(1.06);
+}
+
+body.globe-dragging.is-mobile .glow-point__pulse {
+  animation: none;
+  opacity: 0;
+  visibility: hidden;
+}
+
+body.globe-dragging.is-mobile .glow-point {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 26%, rgba(0, 0, 0, 0.92)),
+    0 1px 5px color-mix(in srgb, var(--glow-color, var(--marker-color)) 12%, transparent);
+}
+
+body.globe-dragging.is-mobile .glow-point__halo {
+  opacity: 0.28;
+}
+
+body.globe-dragging.is-mobile .glow-point.is-selected {
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--glow-color, var(--marker-color)) 40%, rgba(255, 255, 255, 0.1)),
+    0 2px 8px color-mix(in srgb, var(--glow-color, var(--marker-color)) 16%, transparent);
+}
+
 .point-tooltip {
   position: fixed;
   z-index: 40;
@@ -2066,6 +2133,7 @@ h2 {
     min-height: min(52vh, 440px);
     max-height: min(58vh, 520px);
     padding: 4px;
+    touch-action: none;
   }
 
   #globeViz {

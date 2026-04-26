@@ -48,6 +48,53 @@ const SEARCH_INPUT_DEBOUNCE_MS = 160;
 let globe;
 let tooltipEl = null;
 
+/** 与 CSS 中 @media (max-width: 767px) 对齐，用于降低手机 GPU 负载 */
+const GLOBE_MOBILE_MAX_WIDTH = 767;
+
+function isCoarsePointerDevice() {
+  try {
+    return window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+}
+
+function isGlobeMobilePerformanceMode() {
+  if (typeof window === "undefined" || typeof window.innerWidth !== "number") return false;
+  if (window.innerWidth <= GLOBE_MOBILE_MAX_WIDTH) return true;
+  /* 宽屏平板等：以 coarse pointer 近似“触控为主”，避免误伤仅带触屏的笔记本精细指针模式 */
+  if (isCoarsePointerDevice()) return true;
+  return false;
+}
+
+function syncGlobeMobileDomHints() {
+  if (typeof document !== "undefined" && document.body) {
+    document.body.classList.toggle("is-mobile", isGlobeMobilePerformanceMode());
+  }
+}
+
+function applyGlobeRendererPixelRatio() {
+  if (!globe || typeof globe.renderer !== "function") return;
+  const renderer = globe.renderer();
+  if (!renderer || typeof renderer.setPixelRatio !== "function") return;
+  const dpr = window.devicePixelRatio || 1;
+  const pr = isGlobeMobilePerformanceMode()
+    ? Math.min(dpr, 1.25)
+    : Math.min(dpr, 1.75);
+  renderer.setPixelRatio(pr);
+}
+
+function syncGlobeVisualDetailForViewport() {
+  if (!globe) return;
+  const mobile = isGlobeMobilePerformanceMode();
+  try {
+    globe.showGraticules(!mobile);
+    globe.atmosphereAltitude(mobile ? 0.12 : 0.2);
+  } catch {
+    /* ignore */
+  }
+}
+
 const currentRegionEl = document.getElementById("currentRegion");
 const storyCardEl = document.getElementById("storyCard");
 const storyCardSectionEl = document.getElementById("storyCardSection");
@@ -1962,6 +2009,8 @@ function initGlobe() {
     .atmosphereAltitude(0.2)
     .showGraticules(true);
 
+  syncGlobeVisualDetailForViewport();
+
   globe.controls().autoRotate = true;
   globe.controls().autoRotateSpeed = 0.45;
   globe.controls().enableDamping = true;
@@ -2021,11 +2070,15 @@ function initGlobe() {
     if (resizeDebounceTimer) clearTimeout(resizeDebounceTimer);
     resizeDebounceTimer = setTimeout(() => {
       resizeDebounceTimer = null;
+      syncGlobeMobileDomHints();
       measureGlobeSize();
+      applyGlobeRendererPixelRatio();
+      syncGlobeVisualDetailForViewport();
     }, GLOBE_RESIZE_DEBOUNCE_MS);
   }
 
   measureGlobeSize();
+  applyGlobeRendererPixelRatio();
   window.addEventListener("resize", onWindowResize);
   interactionContainer.addEventListener("mouseenter", () => {
     isPointerInside = true;
@@ -2038,10 +2091,14 @@ function initGlobe() {
   });
   globe.controls().addEventListener("start", () => {
     isDragging = true;
+    if (isGlobeMobilePerformanceMode() && document.body) {
+      document.body.classList.add("globe-dragging");
+    }
     syncAutoRotate();
   });
   globe.controls().addEventListener("end", () => {
     isDragging = false;
+    if (document.body) document.body.classList.remove("globe-dragging");
     syncAutoRotate();
   });
 
@@ -2232,6 +2289,7 @@ function initDataNotesModal() {
 
 function init() {
   ensureStoryIds();
+  syncGlobeMobileDomHints();
   initGlobe();
   refreshCategoryLists();
   initLegendNav();
