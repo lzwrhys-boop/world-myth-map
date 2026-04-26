@@ -39,6 +39,9 @@ let searchTerm = "";
 /** 国家排行榜点选：与 `item.country` 精确匹配；与分类、搜索关键词叠加 */
 let rankingCountryFilter = null;
 let selectedStory = null;
+/** 深链 ?story= 对应 id 在数据中不存在时，故事卡片显示提示文案 */
+let storyIdNotFoundFromUrl = false;
+let urlStorySyncBound = false;
 let globe;
 let tooltipEl = null;
 
@@ -126,7 +129,10 @@ const I18N = {
     onboardTip3: "使用搜索、分类和排行榜快速发现故事",
     onboardExploreBtn: "开始探索",
     onboardRandomBtn: "随机故事",
-    onboardRandomDisabledTitle: "当前筛选条件下暂无可用故事"
+    onboardRandomDisabledTitle: "当前筛选条件下暂无可用故事",
+    storyNotFoundAll: "未找到该故事，已返回全部故事。",
+    copyLink: "复制链接",
+    linkCopied: "已复制"
   },
   en: {
     langToggleLabel: "CN / English",
@@ -200,7 +206,10 @@ const I18N = {
     onboardTip3: "Use search, categories, and ranking to discover stories",
     onboardExploreBtn: "Start Exploring",
     onboardRandomBtn: "Random Story",
-    onboardRandomDisabledTitle: "No stories match the current filters"
+    onboardRandomDisabledTitle: "No stories match the current filters",
+    storyNotFoundAll: "Story not found. Showing all stories.",
+    copyLink: "Copy Link",
+    linkCopied: "Copied"
   }
 };
 
@@ -513,14 +522,26 @@ function updateFilterStatusBar() {
 
   if (clearBtn) {
     clearBtn.textContent = t("clearFilters");
-    clearBtn.disabled = !active;
+    clearBtn.disabled = !canClearAll();
   }
 }
 
 function clearAllFilters() {
-  if (!hasActiveFiltersState()) return;
+  if (!canClearAll()) return;
+  storyIdNotFoundFromUrl = false;
+  const hadFilter = hasActiveFiltersState();
   selectedStory = null;
-  applyCategoryFilter("All");
+  clearStoryUrl();
+  if (hadFilter) {
+    applyCategoryFilter("All");
+  } else {
+    refreshGlobePoints();
+    renderStoryCard();
+    updateHeader();
+    updateFilterStatusBar();
+    renderSearchResults();
+    updateOnboardingHud();
+  }
 }
 
 function initClearFilters() {
@@ -541,6 +562,8 @@ function applyCategoryFilter(filter) {
   } else {
     return;
   }
+
+  storyIdNotFoundFromUrl = false;
 
   if (filter === "All") {
     rankingCountryFilter = null;
@@ -567,6 +590,7 @@ function applyCategoryFilter(filter) {
   updateFilterStatusBar();
   renderSearchResults();
   updateOnboardingHud();
+  syncUrlWithSelectedStory();
 }
 
 const countryAliasMap = {
@@ -792,6 +816,168 @@ function getFilteredStories() {
   });
 }
 
+function canClearAll() {
+  return hasActiveFiltersState() || !!selectedStory;
+}
+
+function getStoryIdFromUrl() {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    const raw = p.get("story");
+    if (raw == null) return null;
+    const trimmed = String(raw).trim();
+    if (trimmed === "") return null;
+    return decodeURIComponent(trimmed);
+  } catch (e) {
+    return null;
+  }
+}
+
+function findStoryByIdParam(id) {
+  if (id == null) return null;
+  const key = String(id).trim();
+  if (key === "") return null;
+  return stories.find((s) => s.id != null && String(s.id) === key) || null;
+}
+
+function clearStoryUrl() {
+  const url = new URL(window.location.href);
+  url.search = "";
+  history.replaceState(history.state, "", url);
+}
+
+function updateStoryUrl(story) {
+  if (story && story.id != null && String(story.id).trim() !== "") {
+    const url = new URL(window.location.href);
+    url.search = "";
+    url.searchParams.set("story", String(story.id).trim());
+    history.replaceState(history.state, "", url);
+  } else {
+    clearStoryUrl();
+  }
+}
+
+function syncUrlWithSelectedStory() {
+  updateStoryUrl(selectedStory);
+}
+
+function buildShareUrlForStoryId(id) {
+  const u = new URL(window.location.href);
+  u.search = "";
+  u.searchParams.set("story", String(id).trim());
+  return u.toString();
+}
+
+function copyCurrentStoryLink(triggerBtn) {
+  if (!selectedStory || selectedStory.id == null) return;
+  const id = String(selectedStory.id).trim();
+  if (id === "") return;
+  const text = buildShareUrlForStoryId(id);
+  const showCopied = () => {
+    if (!triggerBtn) return;
+    const restore = t("copyLink");
+    triggerBtn.textContent = t("linkCopied");
+    setTimeout(() => {
+      if (triggerBtn) triggerBtn.textContent = restore;
+    }, 1600);
+  };
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    navigator.clipboard.writeText(text).then(showCopied).catch(() => {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.setAttribute("readonly", "readonly");
+        ta.style.position = "fixed";
+        ta.style.left = "-9999px";
+        document.body.appendChild(ta);
+        ta.select();
+        if (document.execCommand("copy")) showCopied();
+        document.body.removeChild(ta);
+      } catch (e) {
+        /* ignore */
+      }
+    });
+  } else {
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "readonly");
+      ta.style.position = "fixed";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+      if (document.execCommand("copy")) showCopied();
+      document.body.removeChild(ta);
+    } catch (e) {
+      /* ignore */
+    }
+  }
+}
+
+function applySelectionFromUrlWithoutWrite() {
+  const id = getStoryIdFromUrl();
+  if (id) {
+    const s = findStoryByIdParam(id);
+    if (s) {
+      storyIdNotFoundFromUrl = false;
+      selectedStory = s;
+      refreshGlobePoints();
+      renderStoryCard();
+      updateHeader();
+      updateFilterStatusBar();
+      updateOnboardingHud();
+      return;
+    }
+    storyIdNotFoundFromUrl = true;
+    clearStoryUrl();
+  } else {
+    storyIdNotFoundFromUrl = false;
+  }
+  selectedStory = null;
+  refreshGlobePoints();
+  renderStoryCard();
+  updateHeader();
+  updateFilterStatusBar();
+  updateOnboardingHud();
+}
+
+function openStoryFromUrl() {
+  const id = getStoryIdFromUrl();
+  if (!id) return;
+  const s = findStoryByIdParam(id);
+  if (s) {
+    selectStoryAndRefresh(s);
+    return;
+  }
+  storyIdNotFoundFromUrl = true;
+  selectedStory = null;
+  clearStoryUrl();
+  refreshGlobePoints();
+  renderStoryCard();
+  updateHeader();
+  updateFilterStatusBar();
+  updateOnboardingHud();
+}
+
+function initUrlStorySync() {
+  if (urlStorySyncBound) return;
+  urlStorySyncBound = true;
+  window.addEventListener("popstate", () => {
+    applySelectionFromUrlWithoutWrite();
+  });
+}
+
+function initStoryCardCopyLink() {
+  if (!storyCardEl || storyCardEl.dataset.copyLinkBound === "1") return;
+  storyCardEl.dataset.copyLinkBound = "1";
+  storyCardEl.addEventListener("click", (event) => {
+    const btn = event.target.closest(".story-card__copy-link[data-story-copy]");
+    if (!btn) return;
+    event.preventDefault();
+    copyCurrentStoryLink(btn);
+  });
+}
+
 function updateHeader() {
   const countries = new Set(stories.map((item) => item.country));
   const n = stories.length;
@@ -939,11 +1125,13 @@ function buildExploreRecommendationsHtml(current) {
 }
 
 function selectStoryAndRefresh(story) {
+  storyIdNotFoundFromUrl = false;
   selectedStory = story;
   renderStoryCard();
   updateHeader();
   refreshGlobePoints();
   updateFilterStatusBar();
+  syncUrlWithSelectedStory();
 }
 
 const MAX_SEARCH_RESULTS_PREVIEW = 8;
@@ -1077,21 +1265,29 @@ function buildStoryCardDetailsBlock(s) {
 
 function buildSelectedStoryCardHtml(s) {
   const blocks = [];
+  const headTextParts = [];
   if (currentLang === "zh") {
     if (hasDisplayText(s.cn)) {
-      blocks.push(`<h3 class="story-card__title">${escapeHtml(s.cn)}</h3>`);
+      headTextParts.push(`<h3 class="story-card__title">${escapeHtml(s.cn)}</h3>`);
     }
     if (hasDisplayText(s.en)) {
-      blocks.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.en)}</p>`);
+      headTextParts.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.en)}</p>`);
     }
   } else {
     if (hasDisplayText(s.en)) {
-      blocks.push(`<h3 class="story-card__title">${escapeHtml(s.en)}</h3>`);
+      headTextParts.push(`<h3 class="story-card__title">${escapeHtml(s.en)}</h3>`);
     }
     if (hasDisplayText(s.cn)) {
-      blocks.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.cn)}</p>`);
+      headTextParts.push(`<p class="story-card__en story-card__subtitle">${escapeHtml(s.cn)}</p>`);
     }
   }
+  blocks.push(
+    `<div class="story-card__head"><div class="story-card__head-text">${headTextParts.join(
+      ""
+    )}</div><button type="button" class="story-card__copy-link" data-story-copy="1" aria-label="${escapeHtml(
+      t("copyLink")
+    )}">${escapeHtml(t("copyLink"))}</button></div>`
+  );
 
   const chipParts = [];
   if (hasDisplayText(s.country)) {
@@ -1158,6 +1354,10 @@ function buildSelectedStoryCardHtml(s) {
 }
 
 function renderStoryCard() {
+  if (storyIdNotFoundFromUrl) {
+    storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyNotFoundAll"))}</p>`;
+    return;
+  }
   const filtered = getFilteredStories();
   if (filtered.length === 0) {
     if (rankingCountryFilter || currentFilter !== "All") {
@@ -1211,6 +1411,7 @@ function renderCountryRanking() {
 
 function applyRankingCountryToggle(country) {
   if (!country || !countryRankingEl) return;
+  storyIdNotFoundFromUrl = false;
   if (rankingCountryFilter === country) {
     rankingCountryFilter = null;
     searchTerm = "";
@@ -1231,6 +1432,7 @@ function applyRankingCountryToggle(country) {
   updateFilterStatusBar();
   renderSearchResults();
   updateOnboardingHud();
+  syncUrlWithSelectedStory();
 }
 
 function initStoryCardDetailsToggle() {
@@ -1544,6 +1746,7 @@ function initLegendNav() {
 function initSearch() {
   if (!searchInputEl) return;
   searchInputEl.addEventListener("input", (event) => {
+    storyIdNotFoundFromUrl = false;
     searchTerm = event.target.value || "";
     if (!String(searchTerm).trim()) {
       rankingCountryFilter = null;
@@ -1559,6 +1762,7 @@ function initSearch() {
     updateFilterStatusBar();
     renderSearchResults();
     updateOnboardingHud();
+    syncUrlWithSelectedStory();
   });
 }
 
@@ -1785,8 +1989,11 @@ function init() {
   initClearFilters();
   initAboutModal();
   initOnboarding();
+  initUrlStorySync();
+  initStoryCardCopyLink();
   refreshGlobePoints();
   updateLanguageUI();
+  openStoryFromUrl();
 }
 
 init();
