@@ -1070,6 +1070,12 @@ function initGlobe() {
   const interactionContainer = document.querySelector(".globe-panel") || globeContainer;
   let isPointerInside = false;
   let isDragging = false;
+  let isWheeling = false;
+  let wheelIdleTimer = null;
+  const WHEEL_IDLE_MS = 200;
+  const ZOOM_MIN_DIST = 105;
+  const ZOOM_MAX_DIST = 5000;
+
   globe = Globe()(globeContainer)
     .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
     .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
@@ -1083,9 +1089,45 @@ function initGlobe() {
   globe.controls().enableDamping = true;
   globe.pointOfView({ lat: 20, lng: 20, altitude: 2.25 }, 1000);
 
+  const camera = globe.camera();
+  const controls = globe.controls();
+  controls.enableZoom = false;
+  if (typeof controls.minDistance === "number") controls.minDistance = ZOOM_MIN_DIST;
+  if (typeof controls.maxDistance === "number") controls.maxDistance = ZOOM_MAX_DIST;
+
   function syncAutoRotate() {
-    // Pause rotation while hovering or dragging for easier clicking.
-    globe.controls().autoRotate = !(isPointerInside || isDragging);
+    // Pause while hovering, dragging, or wheel-zooming so zoom does not stack with spin.
+    globe.controls().autoRotate = !(isPointerInside || isDragging || isWheeling);
+  }
+
+  function handleCustomWheelZoom(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!camera || !controls) return;
+
+    let factor = 1;
+    if (e.deltaY < 0) factor = 0.9;
+    else if (e.deltaY > 0) factor = 1.1;
+    else return;
+
+    isWheeling = true;
+    syncAutoRotate();
+
+    const direction = camera.position.clone().normalize();
+    const currentDistance = camera.position.length();
+    let nextDistance = currentDistance * factor;
+    nextDistance = Math.min(Math.max(nextDistance, ZOOM_MIN_DIST), ZOOM_MAX_DIST);
+
+    camera.position.copy(direction.multiplyScalar(nextDistance));
+    camera.lookAt(0, 0, 0);
+    controls.update();
+
+    if (wheelIdleTimer) clearTimeout(wheelIdleTimer);
+    wheelIdleTimer = setTimeout(() => {
+      isWheeling = false;
+      wheelIdleTimer = null;
+      syncAutoRotate();
+    }, WHEEL_IDLE_MS);
   }
 
   function resizeGlobe() {
@@ -1114,6 +1156,8 @@ function initGlobe() {
     isDragging = false;
     syncAutoRotate();
   });
+
+  interactionContainer.addEventListener("wheel", handleCustomWheelZoom, { passive: false });
 }
 
 function updateAboutModalI18n() {
