@@ -10,6 +10,7 @@ let tooltipEl = null;
 const storyMetaEl = document.getElementById("storyMeta");
 const currentRegionEl = document.getElementById("currentRegion");
 const storyCardEl = document.getElementById("storyCard");
+const storyCardSectionEl = document.getElementById("storyCardSection");
 const countryRankingEl = document.getElementById("countryRanking");
 const filterBarEl = document.getElementById("filterBar");
 const searchInputEl =
@@ -256,6 +257,13 @@ function renderStoryCard() {
     </p>
     <p class="desc">${selectedStory.summary || selectedStory.desc || ""}</p>
   `;
+
+  if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
+    const anchor = storyCardSectionEl || storyCardEl.closest(".card-block") || storyCardEl;
+    requestAnimationFrame(() => {
+      anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
 }
 
 function renderCountryRanking() {
