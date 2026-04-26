@@ -1996,6 +1996,8 @@ function initGlobe() {
   let isPointerInside = false;
   let isDragging = false;
   let isWheeling = false;
+  let isPinching = false;
+  let lastPinchDistance = 0;
   let wheelIdleTimer = null;
   const WHEEL_IDLE_MS = 200;
   const ZOOM_MIN_DIST = 105;
@@ -2023,8 +2025,46 @@ function initGlobe() {
   if (typeof controls.maxDistance === "number") controls.maxDistance = ZOOM_MAX_DIST;
 
   function syncAutoRotate() {
-    // Pause while hovering, dragging, or wheel-zooming so zoom does not stack with spin.
-    globe.controls().autoRotate = !(isPointerInside || isDragging || isWheeling);
+    // Pause while hovering, dragging, wheel-zooming, or pinch-zooming so zoom does not stack with spin.
+    globe.controls().autoRotate = !(isPointerInside || isDragging || isWheeling || isPinching);
+  }
+
+  function touchStillOverContainer(e) {
+    const rect = interactionContainer.getBoundingClientRect();
+    const n = e.touches.length;
+    for (let i = 0; i < n; i += 1) {
+      const t = e.touches[i];
+      if (t.clientX >= rect.left && t.clientX <= rect.right && t.clientY >= rect.top && t.clientY <= rect.bottom) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function syncPointerInsideFromTouches(e) {
+    isPointerInside = touchStillOverContainer(e);
+    syncAutoRotate();
+  }
+
+  function getTouchPinchDistance(touches) {
+    if (!touches || touches.length < 2) return 0;
+    const a = touches[0];
+    const b = touches[1];
+    const dx = a.clientX - b.clientX;
+    const dy = a.clientY - b.clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
+  function applyRadialZoomScale(scale) {
+    if (!camera || !controls || !scale || !Number.isFinite(scale)) return;
+    const clamped = Math.min(Math.max(scale, 0.88), 1.12);
+    const direction = camera.position.clone().normalize();
+    const currentDistance = camera.position.length();
+    let nextDistance = currentDistance * clamped;
+    nextDistance = Math.min(Math.max(nextDistance, ZOOM_MIN_DIST), ZOOM_MAX_DIST);
+    camera.position.copy(direction.multiplyScalar(nextDistance));
+    camera.lookAt(0, 0, 0);
+    controls.update();
   }
 
   function handleCustomWheelZoom(e) {
@@ -2089,6 +2129,62 @@ function initGlobe() {
     hideTooltip();
     syncAutoRotate();
   });
+
+  interactionContainer.addEventListener(
+    "touchstart",
+    (e) => {
+      syncPointerInsideFromTouches(e);
+      if (e.touches.length >= 2) {
+        lastPinchDistance = getTouchPinchDistance(e.touches);
+        isPinching = true;
+        syncAutoRotate();
+      }
+    },
+    { passive: true }
+  );
+
+  interactionContainer.addEventListener(
+    "touchmove",
+    (e) => {
+      syncPointerInsideFromTouches(e);
+      if (e.touches.length >= 2) {
+        e.preventDefault();
+        const d = getTouchPinchDistance(e.touches);
+        if (lastPinchDistance < 10) {
+          lastPinchDistance = d;
+        } else if (d > 0) {
+          const scale = d / lastPinchDistance;
+          applyRadialZoomScale(scale);
+          lastPinchDistance = d;
+        }
+        isPinching = true;
+        syncAutoRotate();
+      }
+    },
+    { passive: false }
+  );
+
+  function endPinchFromTouch(e) {
+    if (e.touches.length < 2) {
+      lastPinchDistance = 0;
+      isPinching = false;
+    }
+    if (e.touches.length > 0) {
+      syncPointerInsideFromTouches(e);
+      return;
+    }
+    const last = e.changedTouches[0];
+    if (last && typeof document.elementFromPoint === "function") {
+      const el = document.elementFromPoint(last.clientX, last.clientY);
+      isPointerInside = !!(el && interactionContainer.contains(el));
+    } else {
+      isPointerInside = false;
+    }
+    syncAutoRotate();
+  }
+
+  interactionContainer.addEventListener("touchend", endPinchFromTouch, { passive: true });
+  interactionContainer.addEventListener("touchcancel", endPinchFromTouch, { passive: true });
   globe.controls().addEventListener("start", () => {
     isDragging = true;
     if (isGlobeMobilePerformanceMode() && document.body) {
