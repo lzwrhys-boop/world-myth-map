@@ -18,6 +18,67 @@ const searchInputEl =
   document.querySelector('input[type="search"]') ||
   document.querySelector('input[placeholder*="搜索"]');
 
+/**
+ * 地图点位：分类视觉（仅外观；图标路径自 Lucide Static ISC，小尺寸下 stroke 已调细）
+ * 不参与筛选/数据/点击业务逻辑
+ */
+const CATEGORY_GLYPHS = {
+  Sun: {
+    color: "#e4b64a",
+    cls: "glow-point--sun",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v1.5" /><path d="M12 20.5V22" /><path d="m4.9 4.9 1.1 1.1" /><path d="m18 18 1.1 1.1" /><path d="M2 12h1.5" /><path d="M20.5 12H22" /><path d="m6.1 17.9-1.1 1.1" /><path d="m19.1 4.9-1.1 1.1" /></svg>'
+  },
+  Flood: {
+    color: "#5a9dca",
+    cls: "glow-point--flood",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>'
+  },
+  Fire: {
+    color: "#e07a5a",
+    cls: "glow-point--fire",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>'
+  },
+  Dragon: {
+    color: "#7a82d0",
+    cls: "glow-point--dragon",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z" /></svg>'
+  },
+  Love: {
+    color: "#c98fb0",
+    cls: "glow-point--love",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>'
+  },
+  Moon: {
+    color: "#aab8d8",
+    cls: "glow-point--moon",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>'
+  },
+  Princess: {
+    color: "#b8a2d0",
+    cls: "glow-point--princess",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" /></svg>'
+  },
+  __default: {
+    color: "#8c90a8",
+    cls: "glow-point--other",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12" /><path d="M17.196 9 6.804 15" /><path d="m6.804 9 10.392 6" /></svg>'
+  }
+};
+
+function getCategoryMarkerLook(category) {
+  const key = category != null && String(category).trim() !== "" ? String(category) : "";
+  if (key && CATEGORY_GLYPHS[key]) return CATEGORY_GLYPHS[key];
+  return CATEGORY_GLYPHS.__default;
+}
+
 const countryAliasMap = {
   中国: "China",
   大陆: "China",
@@ -384,15 +445,6 @@ function hideTooltip() {
 
 function refreshGlobePoints() {
   const data = getFilteredStories();
-  const palette = {
-    Sun: "#ffd166",
-    Flood: "#4cc9f0",
-    Fire: "#ff6b6b",
-    Dragon: "#b892ff",
-    Love: "#ff8fab",
-    Moon: "#9cc4ff",
-    Princess: "#c7b6ff"
-  };
 
   globe
     .pointsData([])
@@ -402,11 +454,22 @@ function refreshGlobePoints() {
     .htmlLng((d) => d.lng)
     .htmlAltitude(() => 0.01)
     .htmlElement((d) => {
+      const look = getCategoryMarkerLook(d.category);
       const marker = document.createElement("button");
       marker.type = "button";
-      marker.className = "glow-point";
-      marker.style.setProperty("--marker-color", palette[d.category] || "#ffffff");
+      marker.className = `glow-point ${look.cls}`;
+      marker.style.setProperty("--marker-color", look.color);
       if (selectedStory && selectedStory.cn === d.cn) marker.classList.add("is-selected");
+
+      const halo = document.createElement("span");
+      halo.className = "glow-point__halo";
+      halo.setAttribute("aria-hidden", "true");
+      const icon = document.createElement("span");
+      icon.className = "glow-point__icon";
+      icon.setAttribute("aria-hidden", "true");
+      icon.innerHTML = look.svg;
+      marker.appendChild(halo);
+      marker.appendChild(icon);
 
       marker.addEventListener("mouseenter", (event) => {
         showTooltip(d, event);
@@ -427,7 +490,7 @@ function refreshGlobePoints() {
     .ringsData([...(selectedStory ? [selectedStory] : [])])
     .ringLat((d) => d.lat)
     .ringLng((d) => d.lng)
-    .ringColor(() => "rgba(116, 227, 255, 0.8)")
+    .ringColor(() => "rgba(190, 175, 255, 0.7)")
     .ringMaxRadius(2.2)
     .ringPropagationSpeed(0.75)
     .ringRepeatPeriod(1200);
