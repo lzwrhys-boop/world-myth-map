@@ -363,9 +363,10 @@ h1 {
   transform: translateX(0);
 }
 
+/* —— 地球 HTML 点位：分类徽章（script.js CATEGORY_GLYPHS.cls）—— */
 .glow-point {
-  --glow-outer: color-mix(in srgb, var(--marker-color) 55%, transparent);
-  --glow-mid: color-mix(in srgb, var(--marker-color) 38%, transparent);
+  --glow-outer: color-mix(in srgb, var(--glow-color, var(--marker-color)) 50%, transparent);
+  --glow-mid: color-mix(in srgb, var(--glow-color, var(--marker-color)) 34%, transparent);
   position: relative;
   z-index: 5;
   width: 24px;
@@ -376,45 +377,71 @@ h1 {
   cursor: pointer;
   pointer-events: auto;
   color: var(--marker-color, #b8b8c8);
-  background: radial-gradient(
-    circle at 30% 25%,
-    color-mix(in srgb, var(--marker-color) 16%, #0a0a10) 0%,
-    rgba(6, 6, 12, 0.92) 70%
-  );
+  background:
+    radial-gradient(circle at 32% 22%, color-mix(in srgb, var(--glow-color, var(--marker-color)) 22%, transparent) 0%, transparent 42%),
+    radial-gradient(
+      circle at 30% 25%,
+      color-mix(in srgb, var(--marker-color) 18%, #050508) 0%,
+      rgba(4, 4, 10, 0.94) 72%
+    );
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--marker-color) 28%, rgba(0, 0, 0, 0.8)),
-    0 0 0 1px rgba(20, 18, 40, 0.5) inset,
-    0 4px 14px var(--glow-mid),
-    0 0 20px var(--glow-outer);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 32%, rgba(0, 0, 0, 0.85)),
+    0 0 0 1px color-mix(in srgb, var(--glow-color, var(--marker-color)) 12%, transparent) inset,
+    0 3px 12px var(--glow-mid),
+    0 0 18px var(--glow-outer);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, filter 0.22s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.glow-point__pulse {
+  position: absolute;
+  inset: -7px;
+  z-index: 0;
+  border-radius: 50%;
+  pointer-events: none;
+  border: 1px solid color-mix(in srgb, var(--glow-color, var(--marker-color)) 45%, transparent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--glow-color, var(--marker-color)) 35%, transparent);
+  animation: glow-point-pulse-ring 1.35s ease-out infinite;
+}
+
+@keyframes glow-point-pulse-ring {
+  0% {
+    transform: scale(0.88);
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.65);
+    opacity: 0;
+  }
 }
 
 .glow-point__halo {
   position: absolute;
-  inset: -4px;
+  inset: -5px;
+  z-index: 1;
   border-radius: 50%;
   pointer-events: none;
   background: radial-gradient(
     circle,
-    color-mix(in srgb, var(--marker-color) 22%, transparent) 0%,
-    transparent 65%
+    color-mix(in srgb, var(--glow-color, var(--marker-color)) 26%, transparent) 0%,
+    transparent 68%
   );
-  opacity: 0.7;
-  filter: blur(0.5px);
+  opacity: 0.75;
+  filter: blur(0.45px);
 }
 
 .glow-point__icon {
   position: relative;
-  z-index: 1;
+  z-index: 2;
   display: flex;
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--marker-color) 35%, transparent));
 }
 
 .glow-point__svg {
@@ -425,26 +452,70 @@ h1 {
 }
 
 .glow-point:hover {
-  transform: scale(1.1);
-  filter: brightness(1.05);
+  transform: scale(1.12);
+  filter: brightness(1.08);
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--marker-color) 42%, rgba(0, 0, 0, 0.6)),
-    0 0 0 1px rgba(30, 25, 55, 0.45) inset,
-    0 6px 20px var(--glow-mid),
-    0 0 28px var(--glow-outer);
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 48%, rgba(0, 0, 0, 0.55)),
+    0 0 0 1px color-mix(in srgb, var(--glow-color, var(--marker-color)) 18%, transparent) inset,
+    0 5px 18px var(--glow-mid),
+    0 0 26px var(--glow-outer),
+    0 0 36px color-mix(in srgb, var(--glow-color, var(--marker-color)) 28%, transparent);
+}
+
+.glow-point:hover .glow-point__halo {
+  opacity: 0.9;
 }
 
 .glow-point.is-selected {
   transform: scale(1.14);
-  filter: brightness(1.1);
+  filter: brightness(1.12);
   box-shadow:
-    0 0 0 1.5px color-mix(in srgb, var(--marker-color) 55%, #fff0),
-    0 0 0 1px rgba(40, 32, 80, 0.55) inset,
-    0 8px 28px var(--glow-mid),
-    0 0 36px var(--glow-outer);
+    0 0 0 2px color-mix(in srgb, var(--glow-color, var(--marker-color)) 55%, rgba(255, 255, 255, 0.15)),
+    0 0 0 1px color-mix(in srgb, var(--marker-color) 22%, transparent) inset,
+    0 6px 22px var(--glow-mid),
+    0 0 32px var(--glow-outer),
+    0 0 48px color-mix(in srgb, var(--glow-color, var(--marker-color)) 22%, transparent);
 }
 
-/* 分类修饰类名见 script.js CATEGORY_GLYPHS.cls，默认共用人形 marker 基样式 */
+.glow-point.is-selected .glow-point__halo {
+  opacity: 0.95;
+}
+
+/* 分类细调：略强化各色辨识度（仍依赖行内 --marker-color / --glow-color） */
+.glow-point--sun .glow-point__icon {
+  filter: drop-shadow(0 0 4px rgba(245, 200, 90, 0.35));
+}
+.glow-point--flood .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(120, 200, 235, 0.3));
+}
+.glow-point--fire .glow-point__icon {
+  filter: drop-shadow(0 0 4px rgba(255, 130, 90, 0.35));
+}
+.glow-point--dragon .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(170, 160, 240, 0.32));
+}
+.glow-point--love .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(240, 150, 180, 0.32));
+}
+.glow-point--moon .glow-point__icon,
+.glow-point--hero .glow-point__icon,
+.glow-point--other .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(180, 200, 235, 0.28));
+}
+.glow-point--princess .glow-point__icon,
+.glow-point--creation .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(230, 200, 130, 0.3));
+}
+.glow-point--underworld .glow-point__icon {
+  filter: drop-shadow(0 0 2px rgba(140, 135, 165, 0.35));
+}
+.glow-point--trickster .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(100, 210, 185, 0.3));
+}
+.glow-point--monster .glow-point__icon,
+.glow-point--evil .glow-point__icon {
+  filter: drop-shadow(0 0 3px rgba(200, 90, 120, 0.32));
+}
 
 .point-tooltip {
   position: fixed;

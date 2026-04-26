@@ -19,64 +19,140 @@ const searchInputEl =
   document.querySelector('input[placeholder*="搜索"]');
 
 /**
- * 地图点位：分类视觉（仅外观；图标路径自 Lucide Static ISC，小尺寸下 stroke 已调细）
+ * 地图点位：分类图标徽章（仅外观；统一 24 视图 SVG + stroke，无 emoji）
+ * 字段：svg、color（图标主色）、glowColor（外晕）、cls（修饰类名）、ringColor（选中时 Globe 波纹）
  * 不参与筛选/数据/点击业务逻辑
  */
 const CATEGORY_GLYPHS = {
   Sun: {
-    color: "#e4b64a",
+    color: "#e8bc4a",
+    glowColor: "#f5d078",
     cls: "glow-point--sun",
+    ringColor: "rgba(245, 208, 120, 0.55)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2" /><path d="M12 2v1.5" /><path d="M12 20.5V22" /><path d="m4.9 4.9 1.1 1.1" /><path d="m18 18 1.1 1.1" /><path d="M2 12h1.5" /><path d="M20.5 12H22" /><path d="m6.1 17.9-1.1 1.1" /><path d="m19.1 4.9-1.1 1.1" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.25" /><path d="M12 2.25v2" /><path d="M12 19.75v2" /><path d="m4.35 4.35 1.4 1.4" /><path d="m18.25 18.25 1.4 1.4" /><path d="M2.25 12h2" /><path d="M19.75 12h2" /><path d="m5.75 18.25-1.4 1.4" /><path d="m19.65 4.35-1.4 1.4" /></svg>'
   },
   Flood: {
-    color: "#5a9dca",
+    color: "#5eb0d4",
+    glowColor: "#7ec8e8",
     cls: "glow-point--flood",
+    ringColor: "rgba(110, 200, 232, 0.5)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M2 6c.6.5 1.2 1 2.5 1C7 7 7 5 9.5 5c2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 12c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /><path d="M2 18c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 2.6 0 2.4 2 5 2 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M2 7.5c.65.55 1.35 1 2.75 1 2.6 0 2.4-2 5-2s2.4 2 5 2 2.5-2 5-2c1.4 0 2.1.45 2.75 1" /><path d="M2 12.5c.65.55 1.35 1 2.75 1 2.6 0 2.4-2 5-2s2.4 2 5 2 2.5-2 5-2c1.4 0 2.1.45 2.75 1" /><path d="M2 17.5c.65.55 1.35 1 2.75 1 2.6 0 2.4-2 5-2s2.4 2 5 2 2.5-2 5-2c1.4 0 2.1.45 2.75 1" /></svg>'
   },
   Fire: {
-    color: "#e07a5a",
+    color: "#e86848",
+    glowColor: "#ff9468",
     cls: "glow-point--fire",
+    ringColor: "rgba(255, 148, 104, 0.52)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20c3.2 0 5.5-2.1 5.5-5.2 0-2.4-1.2-4.2-2.8-6.1-.9-1-1.7-2.4-1.7-3.7 0-.8.2-1.5.5-2.1-2.2 1.8-3.5 4.2-3.5 6.8 0 1.2.3 2.2.8 3.1-1.1-.6-1.8-1.7-1.8-3.1 0-1.4.6-2.6 1.4-3.6C6.8 8.2 5.5 10.5 5.5 13.2 5.5 16.6 8.2 20 12 20Z" /></svg>'
   },
   Dragon: {
-    color: "#7a82d0",
+    color: "#8b7fd8",
+    glowColor: "#b0a6f0",
     cls: "glow-point--dragon",
+    ringColor: "rgba(160, 150, 235, 0.52)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.33-6 4Z" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.4" /><circle cx="12" cy="12" r="6.8" stroke-dasharray="3.2 3.8" /></svg>'
   },
   Love: {
-    color: "#c98fb0",
+    color: "#d884a8",
+    glowColor: "#f0a0c4",
     cls: "glow-point--love",
+    ringColor: "rgba(240, 160, 196, 0.5)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 8.2c0-2.65-2.1-4.45-4.65-4.45-1.55 0-3 .75-3.85 2.05-.85-1.3-2.3-2.05-3.85-2.05C4.6 3.75 2.5 5.55 2.5 8.2c0 2.85 2.55 5.15 6.4 8.65L12 21l3.1-4.15c3.85-3.5 6.4-5.8 6.4-8.65Z" /></svg>'
   },
   Moon: {
-    color: "#aab8d8",
+    color: "#9eb6e0",
+    glowColor: "#c8d8f5",
     cls: "glow-point--moon",
+    ringColor: "rgba(180, 205, 245, 0.48)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" /></svg>'
   },
   Princess: {
-    color: "#b8a2d0",
+    color: "#d4b078",
+    glowColor: "#ecd4a0",
     cls: "glow-point--princess",
+    ringColor: "rgba(236, 212, 160, 0.5)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8l2.5 10h11L20 8l-4.5 5-3.5-5-3.5 5L4 8z" /><path d="M6.5 18h11" /><path d="M9 8l1.5-2h3L15 8" /></svg>'
+  },
+  Hero: {
+    color: "#a8bdd8",
+    glowColor: "#dce8f5",
+    cls: "glow-point--hero",
+    ringColor: "rgba(200, 218, 245, 0.48)",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="m10 5 2-2 2 2" /><path d="M12 5v11" /><path d="M8.5 16h7" /><path d="M12 16v3.5" /></svg>'
+  },
+  Creation: {
+    color: "#e8dc98",
+    glowColor: "#faf0c8",
+    cls: "glow-point--creation",
+    ringColor: "rgba(248, 236, 180, 0.5)",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M3 12h3M18 12h3" /><path d="M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.6 16.3l-2.1 2.1" /><circle cx="12" cy="12" r="2.2" /></svg>'
+  },
+  Underworld: {
+    color: "#7a7490",
+    glowColor: "#9a94b0",
+    cls: "glow-point--underworld",
+    ringColor: "rgba(130, 125, 155, 0.45)",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M7 11c1.5-3 4.2-4.5 5-4.5s3.5 1.5 5 4.5" /><path d="M9 11v5.5c0 2 1.3 3.5 3 3.5s3-1.5 3-3.5V11" /><path d="M8 17.5h8" /></svg>'
+  },
+  Trickster: {
+    color: "#5ec4b0",
+    glowColor: "#88e0d0",
+    cls: "glow-point--trickster",
+    ringColor: "rgba(100, 210, 190, 0.48)",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M5 11c1.8-2.2 4.2-3.2 7-3.2s5.2 1 7 3.2" /><ellipse cx="9" cy="12" rx="1.1" ry="1.35" /><ellipse cx="15" cy="12" rx="1.1" ry="1.35" /><path d="M9 16c1.2 1.2 2.8 1.8 4.5 1.8s3.3-.6 4.5-1.8" /></svg>'
+  },
+  Monster: {
+    color: "#c85858",
+    glowColor: "#e88880",
+    cls: "glow-point--monster",
+    ringColor: "rgba(232, 120, 110, 0.48)",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M6 6c1.5 3 1.2 7-.8 10" /><path d="M12 5c0 4 .2 8-1 12" /><path d="M18 6c-1.5 3-1.2 7 .8 10" /></svg>'
+  },
+  Evil: {
+    color: "#a85888",
+    glowColor: "#d070a0",
+    cls: "glow-point--evil",
+    ringColor: "rgba(200, 100, 160, 0.45)",
+    svg:
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6l1.2 2.8" /><path d="M16 6l-1.2 2.8" /><path d="M8 14.5c1.3 2 3.4 3.5 5.5 3.5s4.2-1.5 5.5-3.5" /></svg>'
   },
   __default: {
-    color: "#8c90a8",
+    color: "#9eb0d0",
+    glowColor: "#c0d4f0",
     cls: "glow-point--other",
+    ringColor: "rgba(170, 190, 220, 0.45)",
     svg:
-      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12" /><path d="M17.196 9 6.804 15" /><path d="m6.804 9 10.392 6" /></svg>'
+      '<svg class="glow-point__svg" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.55" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v2.5" /><path d="M12 16.5V19" /><path d="M5.5 12H8" /><path d="M16 12h2.5" /><circle cx="12" cy="12" r="2" /></svg>'
   }
 };
 
+const CATEGORY_KEY_ALIASES = {
+  Dark: "Evil"
+};
+
 function getCategoryMarkerLook(category) {
-  const key = category != null && String(category).trim() !== "" ? String(category) : "";
+  let key = category != null && String(category).trim() !== "" ? String(category).trim() : "";
+  if (key && CATEGORY_KEY_ALIASES[key]) key = CATEGORY_KEY_ALIASES[key];
   if (key && CATEGORY_GLYPHS[key]) return CATEGORY_GLYPHS[key];
   return CATEGORY_GLYPHS.__default;
+}
+
+function getSelectedRingColor() {
+  if (!selectedStory) return "rgba(150, 160, 195, 0.42)";
+  const look = getCategoryMarkerLook(selectedStory.category);
+  return look.ringColor || "rgba(190, 175, 255, 0.55)";
 }
 
 const countryAliasMap = {
@@ -459,7 +535,16 @@ function refreshGlobePoints() {
       marker.type = "button";
       marker.className = `glow-point ${look.cls}`;
       marker.style.setProperty("--marker-color", look.color);
-      if (selectedStory && selectedStory.cn === d.cn) marker.classList.add("is-selected");
+      marker.style.setProperty("--glow-color", look.glowColor || look.color);
+      const isSel = selectedStory && selectedStory.cn === d.cn;
+      if (isSel) marker.classList.add("is-selected");
+
+      if (isSel) {
+        const pulse = document.createElement("span");
+        pulse.className = "glow-point__pulse";
+        pulse.setAttribute("aria-hidden", "true");
+        marker.appendChild(pulse);
+      }
 
       const halo = document.createElement("span");
       halo.className = "glow-point__halo";
@@ -490,7 +575,7 @@ function refreshGlobePoints() {
     .ringsData([...(selectedStory ? [selectedStory] : [])])
     .ringLat((d) => d.lat)
     .ringLng((d) => d.lng)
-    .ringColor(() => "rgba(190, 175, 255, 0.7)")
+    .ringColor(() => getSelectedRingColor())
     .ringMaxRadius(2.2)
     .ringPropagationSpeed(0.75)
     .ringRepeatPeriod(1200);
