@@ -115,8 +115,9 @@ const I18N = {
     appHeading: "世界神话地图",
     storyMetaTpl: "{n} 个故事 · {c} 个国家/地区",
     searchPlaceholder: "搜索故事名 / 国家 / 分类，例如 China、Japan、Dragon",
-    storyCardSectionTitle: "故事卡片",
-    storyCardDefaultHint: "点击地球上的发光点位，打开一段来自世界文明的古老故事。",
+    storyCardSectionTitle: "传说入口",
+    storyCardDefaultHint: "每一枚发光点位，都通向一段沉睡已久的传说。",
+    storyCardDefaultSubHint: "轻触它，进入古老世界仍在发光的回声。",
     countryRankingTitle: "国家排行榜 · 按收录故事数",
     legendHint: "图例",
     legendWrapAria: "点位分类图例",
@@ -130,8 +131,7 @@ const I18N = {
     chipEra: "时代",
     chipSourceType: "类型",
     chipConfidence: "可信度",
-    storyCardFoot:
-      "地点以文化起源地或代表性地区标注，部分故事存在多个版本。",
+    storyCardFoot: "传说版本众多，以下线索仅作为进入故事的起点。",
     storyEmptyFiltered: "当前筛选条件下暂无故事，请尝试切换分类或清空搜索。",
     storyEmptySearch: "没有找到相关故事，请尝试搜索国家、故事名或分类。",
     storyFilteredHintTpl: "已筛选 {country}，点击地球点位查看故事。",
@@ -165,10 +165,11 @@ const I18N = {
     searchResultsAria: "搜索结果",
     searchResultsEmpty: "没有找到相关故事，试试国家、分类或英文关键词。",
     searchResultsMoreTpl: "还有 {x} 个结果，请继续缩小搜索范围",
-    storyExpandMore: "展开故事",
-    storyShowLess: "收起故事",
+    storyExpandMore: "进入传说",
+    storyShowLess: "收起传说",
     storyDetailTitle: "故事详情",
     storyMeaningTitle: "文化含义",
+    storyLeadPrefix: "传说引子",
     onboardHudAria: "新手引导与探索入口",
     onboardKicker: "任务简报 · MISSION",
     onboardTitle: "开始探索世界神话",
@@ -210,9 +211,9 @@ const I18N = {
     appHeading: "World Myth Map",
     storyMetaTpl: "{n} stories · {c} countries/regions",
     searchPlaceholder: "Search story, country, or category, e.g. China, Japan, Dragon",
-    storyCardSectionTitle: "Story Card",
-    storyCardDefaultHint:
-      "Click a glowing point on the globe to open an ancient story from world civilizations.",
+    storyCardSectionTitle: "Legend Gateway",
+    storyCardDefaultHint: "Each glowing point opens a long-sleeping legend.",
+    storyCardDefaultSubHint: "Touch one, and enter an old world still echoing with light.",
     countryRankingTitle: "Country Ranking · By Collected Stories",
     legendHint: "Legend",
     legendWrapAria: "Category legend for map points",
@@ -226,8 +227,7 @@ const I18N = {
     chipEra: "Era",
     chipSourceType: "Type",
     chipConfidence: "Confidence",
-    storyCardFoot:
-      "Locations emphasize cultural origins or representative regions; many tales exist in multiple versions.",
+    storyCardFoot: "Many versions coexist; these clues are only the first doorway.",
     storyEmptyFiltered:
       "No stories match the current filters. Try another category or clear the search.",
     storyEmptySearch: "No stories found. Try a country, title, or category.",
@@ -262,10 +262,11 @@ const I18N = {
     searchResultsAria: "Search results",
     searchResultsEmpty: "No stories found. Try a country, category, or English keyword.",
     searchResultsMoreTpl: "{x} more results. Refine your search.",
-    storyExpandMore: "Read more",
-    storyShowLess: "Show less",
+    storyExpandMore: "Enter Legend",
+    storyShowLess: "Close Legend",
     storyDetailTitle: "Story detail",
     storyMeaningTitle: "Cultural meaning",
+    storyLeadPrefix: "Legend Lead",
     onboardHudAria: "Onboarding and exploration entry",
     onboardKicker: "MISSION BRIEF",
     onboardTitle: "Start Exploring World Myth",
@@ -1491,6 +1492,13 @@ function injectStoryDetailsContentFromRecord(wrap) {
 function buildSelectedStoryCardHtml(s) {
   const blocks = [];
   const headTextParts = [];
+  const sourcePieces = [];
+  if (hasDisplayText(s.country)) sourcePieces.push(s.country);
+  if (hasDisplayText(s.region) && (!hasDisplayText(s.country) || s.region !== s.country)) sourcePieces.push(s.region);
+  if (sourcePieces.length) {
+    blocks.push(`<p class="story-card__source">${escapeHtml(sourcePieces.join(" · "))}</p>`);
+  }
+
   if (currentLang === "zh") {
     if (hasDisplayText(s.cn)) {
       headTextParts.push(`<h3 class="story-card__title">${escapeHtml(s.cn)}</h3>`);
@@ -1514,42 +1522,53 @@ function buildSelectedStoryCardHtml(s) {
     )}">${escapeHtml(t("copyLink"))}</button></div>`
   );
 
-  const chipParts = [];
-  if (hasDisplayText(s.country)) {
-    chipParts.push(
-      `<span class="story-chip story-chip--country" title="${escapeHtml(t("chipCountry"))}">${escapeHtml(
-        s.country
-      )}</span>`
+  const summaryText = hasDisplayText(s.summary)
+    ? s.summary
+    : s.desc && hasDisplayText(s.desc)
+      ? s.desc
+      : "";
+  const teaserText = buildStoryTeaserText(s, summaryText);
+  if (teaserText) {
+    blocks.push(
+      `<p class="story-card__teaser"><span class="story-card__teaser-label">${escapeHtml(t("storyLeadPrefix"))}</span>${escapeHtml(
+        teaserText
+      )}</p>`
     );
   }
+
+  const detailsHtml = buildStoryCardDetailsBlock(s);
+  if (detailsHtml) blocks.push(detailsHtml);
+
+  const chipParts = [];
   if (hasDisplayText(s.region)) {
     chipParts.push(
       `<span class="story-chip story-chip--region" title="${escapeHtml(t("chipRegion"))}">${escapeHtml(
         s.region
       )}</span>`
     );
+  } else if (hasDisplayText(s.country)) {
+    chipParts.push(
+      `<span class="story-chip story-chip--country" title="${escapeHtml(t("chipCountry"))}">${escapeHtml(
+        s.country
+      )}</span>`
+    );
   }
-  if (hasDisplayText(s.category)) {
+  if (hasDisplayText(s.category) && chipParts.length < 3) {
     chipParts.push(
       `<span class="story-chip story-chip--category" title="${escapeHtml(t("chipCategory"))}">${escapeHtml(
         s.category
       )}</span>`
     );
   }
-  if (hasDisplayText(s.sourceType)) {
+  if (hasDisplayText(s.sourceType) && chipParts.length < 3) {
     chipParts.push(
       `<span class="story-chip story-chip--sourcetype" title="${escapeHtml(t("chipSourceType"))}">${escapeHtml(
         s.sourceType
       )}</span>`
     );
   }
-  if (hasDisplayText(s.era)) {
-    chipParts.push(
-      `<span class="story-chip story-chip--era" title="${escapeHtml(t("chipEra"))}">${escapeHtml(s.era)}</span>`
-    );
-  }
   const confChip = getConfidenceChip(s.confidence);
-  if (confChip) {
+  if (confChip && chipParts.length < 3) {
     chipParts.push(
       `<span class="story-chip story-chip--confidence story-chip--conf-${confChip.key}" title="${escapeHtml(
         t("chipConfidence")
@@ -1560,22 +1579,32 @@ function buildSelectedStoryCardHtml(s) {
     blocks.push(`<div class="story-card__chips">${chipParts.join("")}</div>`);
   }
 
-  const summaryText = hasDisplayText(s.summary)
-    ? s.summary
-    : s.desc && hasDisplayText(s.desc)
-      ? s.desc
-      : null;
   if (summaryText) {
     blocks.push(`<p class="story-card__summary">${escapeHtml(summaryText)}</p>`);
   }
-
-  const detailsHtml = buildStoryCardDetailsBlock(s);
-  if (detailsHtml) blocks.push(detailsHtml);
 
   blocks.push(`<p class="story-card__foot">${escapeHtml(t("storyCardFoot"))}</p>`);
   const exploreHtml = buildExploreRecommendationsHtml(s);
   const inner = blocks.join("") + exploreHtml;
   return `<div class="story-card__scroll">${inner}</div>`;
+}
+
+function buildStoryTeaserText(story, summary) {
+  const source = hasDisplayText(story.region) ? story.region : hasDisplayText(story.country) ? story.country : "";
+  const seed = hasDisplayText(summary) ? summary.trim() : "";
+  const compact = seed.replace(/\s+/g, " ");
+  const shortFromSummary = compact.split(/[。！？.!?]/).find((x) => hasDisplayText(x));
+  if (hasDisplayText(shortFromSummary)) {
+    const core = shortFromSummary.trim();
+    if (core.length <= 46) return core;
+    return `${core.slice(0, 44)}...`;
+  }
+  if (currentLang === "zh") {
+    if (hasDisplayText(source)) return `在${source}流传的记忆里，这段古老回声仍未熄灭。`;
+    return "这不是被讲完的故事，而是一段仍在回响的古老记忆。";
+  }
+  if (hasDisplayText(source)) return `In the memory carried by ${source}, this old echo still glows.`;
+  return "This is not a story fully told, but an old memory still resonating.";
 }
 
 function renderStoryCard() {
@@ -1599,7 +1628,9 @@ function renderStoryCard() {
         formatTpl(t("storyFilteredHintTpl"), { country: rankingCountryFilter })
       )}</p>`;
     } else {
-      storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyCardDefaultHint"))}</p>`;
+      storyCardEl.innerHTML = `<p class="placeholder placeholder--story-empty"><span class="placeholder__main">${escapeHtml(
+        t("storyCardDefaultHint")
+      )}</span><span class="placeholder__sub">${escapeHtml(t("storyCardDefaultSubHint"))}</span></p>`;
     }
     return;
   }

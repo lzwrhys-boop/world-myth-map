@@ -56,10 +56,10 @@
   <body>
     <div class="bg-layer"></div>
     <div class="app">
-      <header class="hero-block" id="heroBlock" aria-labelledby="appTitle">
+      <header class="hero-block command-header" id="heroBlock" aria-labelledby="appTitle">
         <div class="hero-block__glow" aria-hidden="true"></div>
-        <div class="hero-block__inner">
-          <div class="hero-block__main">
+        <div class="hero-block__inner command-header__inner">
+          <div class="hero-block__main command-left">
             <h1 id="appTitle">世界神话地图</h1>
             <p id="heroSubtitle" class="hero-block__subtitle"></p>
             <p id="heroPitch" class="hero-block__pitch"></p>
@@ -83,52 +83,42 @@
             </div>
             <ul class="hero-tags" id="heroTags" aria-label=""></ul>
           </div>
-          <div class="hero-block__toolbar">
-            <button type="button" id="langToggle" class="lang-toggle-btn" aria-label="Switch language">中文 / EN</button>
-            <button type="button" id="dataNotesBtn" class="about-btn data-notes-btn">数据说明</button>
-            <button type="button" id="aboutBtn" class="about-btn">关于项目</button>
-            <div class="region-chip">
-              <span id="regionChipLabel">当前地区：</span><span id="currentRegion">Global</span>
+
+          <div class="command-right">
+            <div class="hero-block__toolbar top-actions">
+              <button type="button" id="langToggle" class="lang-toggle-btn" aria-label="Switch language">中文 / EN</button>
+              <button type="button" id="dataNotesBtn" class="about-btn data-notes-btn">数据说明</button>
+              <button type="button" id="aboutBtn" class="about-btn">关于项目</button>
+              <div class="region-chip">
+                <span id="regionChipLabel">当前地区：</span><span id="currentRegion">Global</span>
+              </div>
             </div>
+
+            <section class="search-row search-row--floating search-row--global command-search">
+              <input
+                id="searchInput"
+                type="search"
+                placeholder="搜索故事名 / 国家 / 分类，例如 China、Japan、Dragon"
+                autocomplete="off"
+              />
+              <div id="searchResultsPanel" class="search-results-panel" hidden aria-label="搜索结果">
+                <div id="searchResultsInner" class="search-results-panel__inner"></div>
+              </div>
+            </section>
           </div>
         </div>
       </header>
-
-      <section class="search-row">
-        <input
-          id="searchInput"
-          type="search"
-          placeholder="搜索故事名 / 国家 / 分类，例如 China、Japan、Dragon"
-          autocomplete="off"
-        />
-        <div id="searchResultsPanel" class="search-results-panel" hidden aria-label="搜索结果">
-          <div id="searchResultsInner" class="search-results-panel__inner"></div>
-        </div>
-      </section>
-
-      <section class="filter-status-bar" id="filterStatusBar" aria-label="当前筛选状态">
-        <div class="filter-status-bar__inner">
-          <div class="filter-status-bar__chips" id="filterStatusChips"></div>
-          <button type="button" class="clear-filters-btn" id="clearFiltersBtn" disabled>清空筛选</button>
-        </div>
-      </section>
-
-      <section class="onboarding-hud" id="onboardingHud" aria-labelledby="onboardingTitle">
-        <div class="onboarding-hud__accent" aria-hidden="true"></div>
-        <div class="onboarding-hud__inner">
-          <div class="onboarding-hud__main">
-            <p class="onboarding-hud__kicker" id="onboardingKicker"></p>
-            <h2 class="onboarding-hud__title" id="onboardingTitle"></h2>
-            <p class="onboarding-hud__subtitle" id="onboardingSubtitle"></p>
-            <ol class="onboarding-hud__tips" id="onboardingTips"></ol>
-          </div>
-        </div>
-      </section>
 
       <main class="main-layout">
         <section class="globe-column">
           <section class="globe-panel">
             <div id="globeViz"></div>
+          </section>
+          <section class="filter-status-bar" id="filterStatusBar" aria-label="当前筛选状态">
+            <div class="filter-status-bar__inner">
+              <div class="filter-status-bar__chips" id="filterStatusChips"></div>
+              <button type="button" class="clear-filters-btn" id="clearFiltersBtn" disabled>清空筛选</button>
+            </div>
           </section>
           <div class="category-legend-wrap" id="categoryLegendWrap" aria-label="点位分类图例">
             <span class="category-legend-hint" id="categoryLegendHint">图例 · Legend</span>
