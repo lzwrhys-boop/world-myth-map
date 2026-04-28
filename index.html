@@ -113,6 +113,20 @@
         <section class="globe-column">
           <section class="globe-panel">
             <div id="globeViz"></div>
+            <section id="currentStoryOverlay" class="current-story-overlay" aria-live="polite">
+              <div class="current-story-overlay__inner">
+                <div id="currentStoryOverlayThumb" class="current-story-overlay__thumb" aria-hidden="true">
+                  <span class="current-story-overlay__thumb-stars"></span>
+                  <span id="currentStoryOverlayGlyph" class="current-story-overlay__thumb-glyph"></span>
+                </div>
+                <div class="current-story-overlay__content">
+                  <p id="currentStoryOverlayMeta" class="current-story-overlay__meta"></p>
+                  <h3 id="currentStoryOverlayTitle" class="current-story-overlay__title"></h3>
+                  <p id="currentStoryOverlayLead" class="current-story-overlay__lead"></p>
+                </div>
+                <button type="button" id="currentStoryOverlayBtn" class="current-story-overlay__btn"></button>
+              </div>
+            </section>
           </section>
           <section class="filter-status-bar" id="filterStatusBar" aria-label="当前筛选状态">
             <div class="filter-status-bar__inner">
@@ -129,7 +143,7 @@
 
         <aside class="side-panel">
           <section class="card-block" id="storyCardSection">
-            <h2 id="storyCardHeading">故事卡片</h2>
+            <h2 id="storyCardHeading">传说入口</h2>
             <div id="storyCard" class="story-card">
               <p class="placeholder">点击地球上的发光点位，打开一段来自世界文明的古老故事。</p>
             </div>

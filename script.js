@@ -48,6 +48,17 @@ const SEARCH_INPUT_DEBOUNCE_MS = 160;
 let globe;
 let tooltipEl = null;
 
+const CONTINENT_LABELS = [
+  { name: "North America", lat: 45, lng: -102, priority: 100 },
+  { name: "South America", lat: -17, lng: -60, priority: 100 },
+  { name: "Europe", lat: 51, lng: 15, priority: 100 },
+  { name: "Africa", lat: 6, lng: 20, priority: 100 },
+  { name: "Asia", lat: 38, lng: 92, priority: 100 },
+  { name: "Oceania", lat: -24, lng: 134, priority: 100 }
+];
+let globeCountryLabels = [];
+let globePointRefreshPending = false;
+
 /** 与 CSS 中 @media (max-width: 767px) 对齐，用于降低手机 GPU 负载 */
 const GLOBE_MOBILE_MAX_WIDTH = 767;
 
@@ -88,8 +99,8 @@ function syncGlobeVisualDetailForViewport() {
   if (!globe) return;
   const mobile = isGlobeMobilePerformanceMode();
   try {
-    globe.showGraticules(!mobile);
-    globe.atmosphereAltitude(mobile ? 0.12 : 0.2);
+    globe.showGraticules(false);
+    globe.atmosphereAltitude(mobile ? 0.13 : 0.18);
   } catch {
     /* ignore */
   }
@@ -154,8 +165,14 @@ const I18N = {
     confMedium: "代表性地区",
     confLow: "存在争议",
     exploreTitle: "继续探索",
-    exploreSameCountry: "同国家故事",
-    exploreSameCategory: "同分类故事",
+    relatedStoriesTitle: "相关传说",
+    relatedStoriesEmpty: "这段传说暂时没有关联线索，试试点亮附近的光点。",
+    relatedTagCountry: "同地区",
+    relatedTagCategory: "同分类",
+    relatedTagNearby: "附近回声",
+    overlayEmptyLead: "选择一枚发光坐标，进入一段古老传说。",
+    overlayEnterLegend: "进入传说",
+    overlayAria: "当前故事浮层",
     filterStatusBarAria: "当前筛选状态",
     filterStatusAll: "当前显示：全部故事",
     filterStatusCountryTpl: "国家：{name}",
@@ -251,8 +268,14 @@ const I18N = {
     confMedium: "Representative region",
     confLow: "Disputed",
     exploreTitle: "Continue Exploring",
-    exploreSameCountry: "Same Country",
-    exploreSameCategory: "Same Category",
+    relatedStoriesTitle: "Related Legends",
+    relatedStoriesEmpty: "No linked fragments yet for this legend. Try nearby glowing points.",
+    relatedTagCountry: "Same Region",
+    relatedTagCategory: "Same Category",
+    relatedTagNearby: "Nearby Echo",
+    overlayEmptyLead: "Choose a glowing coordinate to enter an ancient legend.",
+    overlayEnterLegend: "Enter Legend",
+    overlayAria: "Current story overlay",
     filterStatusBarAria: "Active filters",
     filterStatusAll: "Showing: All stories",
     filterStatusCountryTpl: "Country: {name}",
@@ -864,6 +887,206 @@ function normalizeText(value) {
     .replace(/\s+/g, " ");
 }
 
+function buildCountryLabelDataset() {
+  const map = new Map();
+  stories.forEach((s) => {
+    if (!s || !s.country || !Number.isFinite(Number(s.lat)) || !Number.isFinite(Number(s.lng))) return;
+    const key = String(s.country);
+    if (!map.has(key)) {
+      map.set(key, { name: key, count: 0, latSum: 0, lngSum: 0, points: 0 });
+    }
+    const rec = map.get(key);
+    rec.count += 1;
+    rec.latSum += Number(s.lat);
+    rec.lngSum += Number(s.lng);
+    rec.points += 1;
+  });
+  const boosted = new Set([
+    "China",
+    "India",
+    "Japan",
+    "Russia",
+    "United States",
+    "Brazil",
+    "Mexico",
+    "Egypt",
+    "Greece",
+    "Italy",
+    "Turkey",
+    "Iran",
+    "Indonesia",
+    "Australia",
+    "United Kingdom",
+    "France",
+    "Germany"
+  ]);
+  globeCountryLabels = [...map.values()].map((r) => {
+    const lat = r.points ? r.latSum / r.points : 0;
+    const lng = r.points ? r.lngSum / r.points : 0;
+    const priority = r.count * 10 + (boosted.has(r.name) ? 8 : 0);
+    return { type: "country-label", name: r.name, lat, lng, priority, count: r.count };
+  });
+}
+
+function estimateLabelWidth(text, sizeClass) {
+  const fs = sizeClass === "major" ? 14 : sizeClass === "normal" ? 12 : 11;
+  return Math.max(40, text.length * fs * 0.58 + 12);
+}
+
+function intersectsAny(box, placed) {
+  for (let i = 0; i < placed.length; i += 1) {
+    const b = placed[i];
+    if (box.x < b.x + b.w && box.x + box.w > b.x && box.y < b.y + b.h && box.y + box.h > b.y) return true;
+  }
+  return false;
+}
+
+function getCurrentGlobeAltitude() {
+  if (!globe || typeof globe.camera !== "function") return 2.25;
+  try {
+    const cam = globe.camera();
+    if (!cam || !cam.position) return 2.25;
+    const dist = Number(cam.position.length());
+    if (!Number.isFinite(dist) || dist <= 0) return 2.25;
+    return dist / 100 - 1;
+  } catch {
+    return 2.25;
+  }
+}
+
+function getCurrentZoomLevel() {
+  const altitude = getCurrentGlobeAltitude();
+  if (altitude > 1.8) return 1;
+  if (altitude > 1.1) return 2;
+  if (altitude > 0.72) return 3;
+  return 4;
+}
+
+function latLngToDir(lat, lng) {
+  const latR = (Number(lat) * Math.PI) / 180;
+  const lngR = (Number(lng) * Math.PI) / 180;
+  const x = Math.cos(latR) * Math.sin(lngR);
+  const y = Math.sin(latR);
+  const z = Math.cos(latR) * Math.cos(lngR);
+  return { x, y, z };
+}
+
+function projectToScreen(lat, lng, width, height) {
+  if (!globe || typeof THREE === "undefined") return null;
+  const camera = globe.camera();
+  if (!camera) return null;
+  const coord =
+    typeof globe.getCoords === "function"
+      ? globe.getCoords(lat, lng, 0.03)
+      : {
+          x: latLngToDir(lat, lng).x * 100,
+          y: latLngToDir(lat, lng).y * 100,
+          z: latLngToDir(lat, lng).z * 100
+        };
+  const worldVec = new THREE.Vector3(coord.x, coord.y, coord.z);
+  const ndc = worldVec.project(camera);
+  if (!Number.isFinite(ndc.x) || !Number.isFinite(ndc.y)) return null;
+  return {
+    x: (ndc.x * 0.5 + 0.5) * width,
+    y: (-ndc.y * 0.5 + 0.5) * height
+  };
+}
+
+function isFrontHemisphere(lat, lng) {
+  if (!globe || typeof globe.camera !== "function" || typeof THREE === "undefined") return false;
+  try {
+    const camera = globe.camera();
+    if (!camera) return false;
+    const c = typeof globe.getCoords === "function" ? globe.getCoords(lat, lng, 0.01) : null;
+    if (!c) return false;
+    const world = new THREE.Vector3(c.x, c.y, c.z).normalize();
+    const cam = camera.position.clone().normalize();
+    return cam.dot(world) > 0.03;
+  } catch {
+    return false;
+  }
+}
+
+function buildLabelEntries() {
+  const level = getCurrentZoomLevel();
+  const globeEl = document.getElementById("globeViz");
+  const width = globeEl?.clientWidth || 0;
+  const height = globeEl?.clientHeight || 0;
+  const placedCountries = [];
+  const out = [];
+  const continentOpacity = level === 1 ? 0.78 : level === 2 ? 0.3 : 0;
+
+  // Pass 1: Continents (always independent, never filtered by country collision)
+  CONTINENT_LABELS.forEach((c) => {
+    if (!isFrontHemisphere(c.lat, c.lng) || !width || !height) return;
+    out.push({
+      type: "continent-label",
+      name: c.name,
+      lat: c.lat,
+      lng: c.lng,
+      _sx: 0,
+      _sy: 0,
+      sizeClass: "continent",
+      opacity: continentOpacity
+    });
+  });
+
+  if (level < 2) return out;
+
+  // Pass 2: Countries (independent from continents)
+  const cap = level === 2 ? 35 : level === 3 ? 55 : 70;
+  const minPriority = level === 2 ? 8 : level === 3 ? 4 : 0;
+  const topCountries = globeCountryLabels
+    .filter((c) => c.priority >= minPriority)
+    .sort((a, b) => b.priority - a.priority || a.name.localeCompare(b.name))
+    .slice(0, 100);
+  let shownCountry = 0;
+  for (let i = 0; i < topCountries.length; i += 1) {
+    if (shownCountry >= cap) break;
+    const c = topCountries[i];
+    if (!isFrontHemisphere(c.lat, c.lng) || !width || !height) continue;
+    const p = projectToScreen(c.lat, c.lng, width, height);
+    if (!p) continue;
+    const sizeClass = c.priority >= 26 ? "major" : c.priority >= 13 ? "normal" : "minor";
+    const w = estimateLabelWidth(c.name, sizeClass) * 0.82;
+    const h = 18 * 0.82;
+    const shifts = level >= 3 ? [[0, 0], [14, -7], [-14, -7], [14, 7], [-14, 7]] : [[0, 0], [8, -5], [-8, -5]];
+    let accepted = null;
+    for (let s = 0; s < shifts.length; s += 1) {
+      const shift = shifts[s];
+      const box = { x: p.x + shift[0] - w / 2, y: p.y + shift[1] - h / 2, w, h };
+      if (!intersectsAny(box, placedCountries)) {
+        accepted = { box, sx: shift[0], sy: shift[1] };
+        break;
+      }
+    }
+    if (!accepted) continue;
+    placedCountries.push(accepted.box);
+    out.push({
+      type: "country-label",
+      name: c.name,
+      lat: c.lat,
+      lng: c.lng,
+      _sx: accepted.sx,
+      _sy: accepted.sy,
+      sizeClass,
+      opacity: level === 2 ? 0.72 : 0.8,
+      isFocus: !!(selectedStory && selectedStory.country === c.name)
+    });
+    shownCountry += 1;
+  }
+  return out;
+}
+
+function requestGlobePointsRefresh() {
+  if (globePointRefreshPending) return;
+  globePointRefreshPending = true;
+  requestAnimationFrame(() => {
+    globePointRefreshPending = false;
+    refreshGlobePoints();
+  });
+}
+
 function buildSearchKeywords(rawTerm) {
   const normalized = normalizeText(rawTerm);
   if (!normalized) return [];
@@ -1267,55 +1490,101 @@ function storyExploreTitle(story) {
   return "";
 }
 
-function buildExploreRecommendationsHtml(current) {
-  const visible = new Set(getFilteredStories());
-  const curCat = normalizeCategoryKey(current.category);
-  const sameCountry = stories
-    .filter((st) => st !== current && st.country === current.country && visible.has(st))
-    .slice(0, 3);
-  const sameCategory = stories
-    .filter(
-      (st) =>
-        st !== current &&
-        visible.has(st) &&
-        curCat &&
-        normalizeCategoryKey(st.category) === curCat
-    )
-    .slice(0, 3);
+function getStoryToneClass(category) {
+  switch (normalizeCategoryKey(category)) {
+    case "Sun":
+      return "sun";
+    case "Flood":
+      return "flood";
+    case "Dragon":
+      return "dragon";
+    case "Love":
+      return "love";
+    case "Moon":
+      return "moon";
+    case "Fire":
+      return "fire";
+    case "Underworld":
+      return "underworld";
+    case "Princess":
+      return "hero";
+    case "Monster":
+      return "monster";
+    case "Hero":
+      return "hero";
+    default:
+      return "default";
+  }
+}
 
-  const groups = [];
-  if (sameCountry.length > 0) {
-    const btns = sameCountry
-      .map((st) => {
-        const label = escapeHtml(storyExploreTitle(st));
-        const cnAttr = escapeHtml(st.cn);
-        return `<button type="button" class="explore-rec__item" data-story-cn="${cnAttr}">${label}</button>`;
-      })
-      .join("");
-    groups.push(
-      `<div class="explore-rec__group"><h4 class="explore-rec__sub">${escapeHtml(
-        t("exploreSameCountry")
-      )}</h4><div class="explore-rec__list">${btns}</div></div>`
-    );
+function buildExploreRecommendationsHtml(current) {
+  const visible = getFilteredStories();
+  const visibleSet = new Set(visible);
+  const curCat = normalizeCategoryKey(current.category);
+  const picks = [];
+  const seen = new Set();
+  const MAX_RELATED = 5;
+
+  function pushUnique(story, kind) {
+    if (!story || story === current) return;
+    if (!visibleSet.has(story)) return;
+    const key = String(story.id || story.cn || story.en || "");
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    picks.push({ story, kind });
   }
-  if (sameCategory.length > 0) {
-    const btns = sameCategory
-      .map((st) => {
-        const label = escapeHtml(storyExploreTitle(st));
-        const cnAttr = escapeHtml(st.cn);
-        return `<button type="button" class="explore-rec__item" data-story-cn="${cnAttr}">${label}</button>`;
-      })
-      .join("");
-    groups.push(
-      `<div class="explore-rec__group"><h4 class="explore-rec__sub">${escapeHtml(
-        t("exploreSameCategory")
-      )}</h4><div class="explore-rec__list">${btns}</div></div>`
-    );
+
+  stories.forEach((st) => {
+    if (st.country === current.country) pushUnique(st, "country");
+  });
+  stories.forEach((st) => {
+    if (!curCat) return;
+    if (normalizeCategoryKey(st.category) === curCat) pushUnique(st, "category");
+  });
+  stories.forEach((st) => {
+    if (st.region && current.region && st.region === current.region) pushUnique(st, "nearby");
+  });
+
+  const top = picks.slice(0, MAX_RELATED);
+  if (!top.length) {
+    return `<section class="explore-rec" aria-label="${escapeHtml(t("relatedStoriesTitle"))}"><h3 class="explore-rec__title">${escapeHtml(
+      t("relatedStoriesTitle")
+    )}</h3><p class="explore-rec__empty">${escapeHtml(t("relatedStoriesEmpty"))}</p></section>`;
   }
-  if (!groups.length) return "";
-  return `<section class="explore-rec" aria-label="${escapeHtml(t("exploreTitle"))}"><h3 class="explore-rec__title">${escapeHtml(
-    t("exploreTitle")
-  )}</h3>${groups.join("")}</section>`;
+
+  const getKindLabel = (kind) => {
+    if (kind === "country") return t("relatedTagCountry");
+    if (kind === "category") return t("relatedTagCategory");
+    return t("relatedTagNearby");
+  };
+
+  const list = top
+    .map(({ story, kind }) => {
+      const title = escapeHtml(storyExploreTitle(story));
+      const cnAttr = escapeHtml(story.cn);
+      const place = escapeHtml(hasDisplayText(story.region) ? story.region : story.country);
+      const cat = escapeHtml(getCategoryDisplayForSearch(story));
+      const tone = escapeHtml(getStoryToneClass(story.category));
+      const kindLabel = escapeHtml(getKindLabel(kind));
+      const glyph = getCategoryMarkerLook(story.category).svg;
+      return `<button type="button" class="explore-rec__item" data-story-cn="${cnAttr}">
+        <span class="explore-rec__thumb explore-rec__thumb--${tone}" aria-hidden="true">
+          <span class="explore-rec__thumb-stars"></span>
+          <span class="explore-rec__thumb-glyph">${glyph}</span>
+        </span>
+        <span class="explore-rec__body">
+          <span class="explore-rec__meta">${place}</span>
+          <span class="explore-rec__name">${title}</span>
+          <span class="explore-rec__tags"><span class="explore-rec__tag">${cat}</span><span class="explore-rec__tag">${kindLabel}</span></span>
+        </span>
+      </button>`;
+    })
+    .join("");
+
+  return `<section class="explore-rec" aria-label="${escapeHtml(t("relatedStoriesTitle"))}">
+    <h3 class="explore-rec__title">${escapeHtml(t("relatedStoriesTitle"))}</h3>
+    <div class="explore-rec__list">${list}</div>
+  </section>`;
 }
 
 function selectStoryAndRefresh(story) {
@@ -1553,14 +1822,14 @@ function buildSelectedStoryCardHtml(s) {
       )}</span>`
     );
   }
-  if (hasDisplayText(s.category) && chipParts.length < 3) {
+  if (hasDisplayText(s.category) && chipParts.length < 2) {
     chipParts.push(
       `<span class="story-chip story-chip--category" title="${escapeHtml(t("chipCategory"))}">${escapeHtml(
         s.category
       )}</span>`
     );
   }
-  if (hasDisplayText(s.sourceType) && chipParts.length < 3) {
+  if (hasDisplayText(s.sourceType) && chipParts.length < 2) {
     chipParts.push(
       `<span class="story-chip story-chip--sourcetype" title="${escapeHtml(t("chipSourceType"))}">${escapeHtml(
         s.sourceType
@@ -1568,7 +1837,7 @@ function buildSelectedStoryCardHtml(s) {
     );
   }
   const confChip = getConfidenceChip(s.confidence);
-  if (confChip && chipParts.length < 3) {
+  if (confChip && chipParts.length < 2) {
     chipParts.push(
       `<span class="story-chip story-chip--confidence story-chip--conf-${confChip.key}" title="${escapeHtml(
         t("chipConfidence")
@@ -1607,9 +1876,60 @@ function buildStoryTeaserText(story, summary) {
   return "This is not a story fully told, but an old memory still resonating.";
 }
 
+function updateCurrentStoryOverlay() {
+  const wrap = document.getElementById("currentStoryOverlay");
+  const thumbEl = document.getElementById("currentStoryOverlayThumb");
+  const glyphEl = document.getElementById("currentStoryOverlayGlyph");
+  const metaEl = document.getElementById("currentStoryOverlayMeta");
+  const titleEl = document.getElementById("currentStoryOverlayTitle");
+  const leadEl = document.getElementById("currentStoryOverlayLead");
+  const btnEl = document.getElementById("currentStoryOverlayBtn");
+  if (!wrap || !thumbEl || !glyphEl || !metaEl || !titleEl || !leadEl || !btnEl) return;
+
+  wrap.setAttribute("aria-label", t("overlayAria"));
+  btnEl.textContent = t("overlayEnterLegend");
+  btnEl.disabled = !selectedStory;
+
+  if (!selectedStory) {
+    wrap.classList.add("is-empty");
+    thumbEl.className = "current-story-overlay__thumb current-story-overlay__thumb--default";
+    glyphEl.innerHTML = getCategoryMarkerLook("Other").svg;
+    metaEl.textContent = "";
+    titleEl.textContent = t("storyCardSectionTitle");
+    leadEl.textContent = t("overlayEmptyLead");
+    return;
+  }
+
+  wrap.classList.remove("is-empty");
+  thumbEl.className = `current-story-overlay__thumb current-story-overlay__thumb--${getStoryToneClass(
+    selectedStory.category
+  )}`;
+  glyphEl.innerHTML = getCategoryMarkerLook(selectedStory.category).svg;
+  const regionText = hasDisplayText(selectedStory.region) ? selectedStory.region : selectedStory.country || "";
+  metaEl.textContent = regionText;
+  titleEl.textContent = storyExploreTitle(selectedStory);
+  leadEl.textContent = buildStoryTeaserText(
+    selectedStory,
+    hasDisplayText(selectedStory.summary) ? selectedStory.summary : selectedStory.desc || ""
+  );
+}
+
+function openSelectedStoryLegendDetails() {
+  if (!selectedStory) return;
+  const anchor = storyCardSectionEl || storyCardEl;
+  if (anchor) {
+    anchor.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  requestAnimationFrame(() => {
+    const detailsBtn = storyCardEl.querySelector(".story-card__details-toggle[aria-expanded='false']");
+    if (detailsBtn instanceof HTMLButtonElement) detailsBtn.click();
+  });
+}
+
 function renderStoryCard() {
   if (storyIdNotFoundFromUrl) {
     storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyNotFoundAll"))}</p>`;
+    updateCurrentStoryOverlay();
     return;
   }
   const filtered = getFilteredStories();
@@ -1619,6 +1939,7 @@ function renderStoryCard() {
     } else {
       storyCardEl.innerHTML = `<p class="placeholder">${escapeHtml(t("storyEmptySearch"))}</p>`;
     }
+    updateCurrentStoryOverlay();
     return;
   }
 
@@ -1632,10 +1953,12 @@ function renderStoryCard() {
         t("storyCardDefaultHint")
       )}</span><span class="placeholder__sub">${escapeHtml(t("storyCardDefaultSubHint"))}</span></p>`;
     }
+    updateCurrentStoryOverlay();
     return;
   }
 
   storyCardEl.innerHTML = buildSelectedStoryCardHtml(selectedStory);
+  updateCurrentStoryOverlay();
 
   if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
     const anchor = storyCardSectionEl || storyCardEl.closest(".card-block") || storyCardEl;
@@ -1727,6 +2050,15 @@ function initStoryCardInteractions() {
     detailBtn.setAttribute("aria-expanded", next ? "true" : "false");
     panel.hidden = !next;
     detailBtn.textContent = t(next ? "storyShowLess" : "storyExpandMore");
+  });
+}
+
+function initCurrentStoryOverlay() {
+  const btn = document.getElementById("currentStoryOverlayBtn");
+  if (!btn || btn.dataset.overlayBound === "1") return;
+  btn.dataset.overlayBound = "1";
+  btn.addEventListener("click", () => {
+    openSelectedStoryLegendDetails();
   });
 }
 
@@ -1836,6 +2168,18 @@ function buildMarkerDisplayPositions(filteredStories) {
 function refreshGlobePoints() {
   const data = getFilteredStories();
   const displayPos = buildMarkerDisplayPositions(data);
+  const markerEntries = data.map((story) => ({
+    type: "marker",
+    story,
+    lat: displayPos.has(story) ? displayPos.get(story).lat : story.lat,
+    lng: displayPos.has(story) ? displayPos.get(story).lng : story.lng,
+    altitude: 0.01
+  }));
+  const labelEntries = buildLabelEntries().map((l) => ({
+    ...l,
+    altitude: l.type === "continent-label" ? 0.04 : 0.032
+  }));
+  const allEntries = [...markerEntries, ...labelEntries];
   const ringPayload =
     selectedStory && data.includes(selectedStory) && displayPos.has(selectedStory)
       ? [{ ...selectedStory, lat: displayPos.get(selectedStory).lat, lng: displayPos.get(selectedStory).lng }]
@@ -1844,49 +2188,59 @@ function refreshGlobePoints() {
   globe
     .pointsData([])
     .labelsData([])
-    .htmlElementsData(data)
-    .htmlLat((d) => (displayPos.has(d) ? displayPos.get(d).lat : d.lat))
-    .htmlLng((d) => (displayPos.has(d) ? displayPos.get(d).lng : d.lng))
-    .htmlAltitude(() => 0.01)
+    .htmlElementsData(allEntries)
+    .htmlLat((d) => d.lat)
+    .htmlLng((d) => d.lng)
+    .htmlAltitude((d) => d.altitude || 0.01)
     .htmlElement((d) => {
-      const look = getCategoryMarkerLook(d.category);
-      const marker = document.createElement("button");
-      marker.type = "button";
-      marker.className = `glow-point ${look.cls}`;
-      marker.style.setProperty("--marker-color", look.color);
-      marker.style.setProperty("--glow-color", look.glowColor || look.color);
-      const isSel = selectedStory && selectedStory.cn === d.cn;
-      if (isSel) marker.classList.add("is-selected");
+      if (d.type === "marker") {
+        const story = d.story;
+        const look = getCategoryMarkerLook(story.category);
+        const marker = document.createElement("button");
+        marker.type = "button";
+        marker.className = `glow-point ${look.cls}`;
+        marker.style.setProperty("--marker-color", look.color);
+        marker.style.setProperty("--glow-color", look.glowColor || look.color);
+        const isSel = selectedStory && selectedStory.cn === story.cn;
+        if (isSel) marker.classList.add("is-selected");
 
-      if (isSel) {
-        const pulse = document.createElement("span");
-        pulse.className = "glow-point__pulse";
-        pulse.setAttribute("aria-hidden", "true");
-        marker.appendChild(pulse);
+        if (isSel) {
+          const pulse = document.createElement("span");
+          pulse.className = "glow-point__pulse";
+          pulse.setAttribute("aria-hidden", "true");
+          marker.appendChild(pulse);
+        }
+
+        const halo = document.createElement("span");
+        halo.className = "glow-point__halo";
+        halo.setAttribute("aria-hidden", "true");
+        const icon = document.createElement("span");
+        icon.className = "glow-point__icon";
+        icon.setAttribute("aria-hidden", "true");
+        icon.innerHTML = look.svg;
+        marker.appendChild(halo);
+        marker.appendChild(icon);
+
+        marker.addEventListener("mouseenter", (event) => {
+          showTooltip(story, event);
+        });
+        marker.addEventListener("mousemove", moveTooltip);
+        marker.addEventListener("mouseleave", () => {
+          hideTooltip();
+        });
+        marker.addEventListener("click", (event) => {
+          event.stopPropagation();
+          selectStoryAndRefresh(story);
+        });
+        return marker;
       }
 
-      const halo = document.createElement("span");
-      halo.className = "glow-point__halo";
-      halo.setAttribute("aria-hidden", "true");
-      const icon = document.createElement("span");
-      icon.className = "glow-point__icon";
-      icon.setAttribute("aria-hidden", "true");
-      icon.innerHTML = look.svg;
-      marker.appendChild(halo);
-      marker.appendChild(icon);
-
-      marker.addEventListener("mouseenter", (event) => {
-        showTooltip(d, event);
-      });
-      marker.addEventListener("mousemove", moveTooltip);
-      marker.addEventListener("mouseleave", () => {
-        hideTooltip();
-      });
-      marker.addEventListener("click", (event) => {
-        event.stopPropagation();
-        selectStoryAndRefresh(d);
-      });
-      return marker;
+      const label = document.createElement("span");
+      label.className = `globe-map-label globe-map-label--${d.type === "continent-label" ? "continent" : "country"} globe-map-label--${d.sizeClass || "normal"}${d.isFocus ? " is-focus" : ""}`;
+      label.textContent = d.name;
+      label.style.opacity = String(d.opacity ?? 0.8);
+      if (d._sx || d._sy) label.style.transform = `translate(calc(-50% + ${d._sx || 0}px), calc(-50% + ${d._sy || 0}px))`;
+      return label;
     })
     .ringsData(ringPayload)
     .ringLat((d) => d.lat)
@@ -2024,6 +2378,7 @@ function initSearch() {
 function initGlobe() {
   const globeContainer = document.getElementById("globeViz");
   const interactionContainer = document.querySelector(".globe-panel") || globeContainer;
+  buildCountryLabelDataset();
   let isPointerInside = false;
   let isDragging = false;
   let isWheeling = false;
@@ -2039,8 +2394,19 @@ function initGlobe() {
     .bumpImageUrl("https://unpkg.com/three-globe/example/img/earth-topology.png")
     .backgroundColor("rgba(0,0,0,0)")
     .atmosphereColor("#7fd8ff")
-    .atmosphereAltitude(0.2)
-    .showGraticules(true);
+    .atmosphereAltitude(0.18)
+    .showGraticules(false);
+
+  if (typeof globe.globeMaterial === "function" && typeof THREE !== "undefined") {
+    const material = globe.globeMaterial();
+    if (material) {
+      material.color = new THREE.Color("#bed3f0");
+      material.emissive = new THREE.Color("#0a1730");
+      material.emissiveIntensity = 0.16;
+      material.shininess = 0.38;
+      material.specular = new THREE.Color("#293f63");
+    }
+  }
 
   syncGlobeVisualDetailForViewport();
 
@@ -2145,6 +2511,7 @@ function initGlobe() {
       measureGlobeSize();
       applyGlobeRendererPixelRatio();
       syncGlobeVisualDetailForViewport();
+      requestGlobePointsRefresh();
     }, GLOBE_RESIZE_DEBOUNCE_MS);
   }
 
@@ -2228,8 +2595,12 @@ function initGlobe() {
     if (document.body) document.body.classList.remove("globe-dragging");
     syncAutoRotate();
   });
+  globe.controls().addEventListener("change", () => {
+    requestGlobePointsRefresh();
+  });
 
   interactionContainer.addEventListener("wheel", handleCustomWheelZoom, { passive: false });
+  requestGlobePointsRefresh();
 }
 
 function updateAboutModalI18n() {
@@ -2423,6 +2794,7 @@ function init() {
   initFilters();
   initCountryRankingNav();
   initStoryCardInteractions();
+  initCurrentStoryOverlay();
   initLangToggle();
   initSearchResultsNav();
   initSearch();
